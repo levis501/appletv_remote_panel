@@ -9,8 +9,8 @@ A GNOME Shell extension that controls Apple TVs over the local network. Two main
 
 ## Key Files
 
-- `atv_control.py` — backend commands (scan, status, play/pause, volume, app management, etc.)
-- `atv_setup.py` — device pairing and credential setup
+- `atv_control.py` — backend commands (list_devices, scan, status, play/pause, volume, app management, etc.)
+- `atv_setup.py` — interactive device manager: scan/add/re-pair devices, remove devices
 - `install.sh` — sets up venv, installs `pyatv`, deploys extension and scripts
 - `extension/extension.js` — main extension entry point; `_send()` dispatches backend commands
 - `extension/appChooser.js`, `extension/appDialog.js` — UI subcomponents
@@ -42,7 +42,7 @@ Restart GNOME Shell to load extension changes:
   ~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py status <device_id>
   ~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py play_pause <device_id>
   ```
-- Device IDs are in `~/.config/appletv-remote/devices.json` or via `atv_control.py scan`
+- Device IDs are in `~/.config/appletv-remote/devices.json` or via `atv_control.py list_devices` (instant, no scan). Use `atv_control.py scan` only to discover new unconfigured devices on the network.
 - If auth fails, re-run setup:
   ```bash
   ~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_setup.py
@@ -67,6 +67,7 @@ Restart GNOME Shell to load extension changes:
 
 ## Pairing Notes
 
-- Setup tries Companion protocol first (tvOS 15+), then falls back to MRP
-- MRP is required for remote control and most metadata
-- Back up `devices.json` before testing pairing changes
+- `atv_setup.py` is an interactive loop: choose `[a]` to scan and add/re-pair, `[r]` to remove a device, `[q]` to quit. Existing devices not selected in a run are preserved.
+- Pairing order: **MRP first** (required — enables all remote control and metadata), then **Companion** (optional, recommended for tvOS 15+).
+- MRP is required for remote control and most metadata.
+- Back up `devices.json` before testing pairing changes.

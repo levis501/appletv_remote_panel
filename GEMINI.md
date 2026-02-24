@@ -36,9 +36,9 @@ If the UI works but commands (play, pause, volume) fail, or metadata isn't updat
   # Send a remote command
   ~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py play_pause <device_id>
   ```
-  *(You can find `<device_id>` in `~/.config/appletv-remote/devices.json` or by running `atv_control.py scan`)*
+  *(You can find `<device_id>` in `~/.config/appletv-remote/devices.json` or via `atv_control.py list_devices`)*
 - **Configuration & Pairing:** Device configuration and credentials are saved in `~/.config/appletv-remote/devices.json`.
-  - The setup tool now attempts Companion protocol pairing first (recommended for tvOS 15+) and then falls back to MRP pairing. This ordering reflects most modern devices.
+  - The setup tool now pairs **MRP first** (required for all remote control and metadata), then offers **Companion** pairing as an optional step (recommended for tvOS 15+).
   - If authentication fails, the credentials might have expired or the Apple TV was reset. Re-run setup to generate new credentials:
     ```bash
     ~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_setup.py
