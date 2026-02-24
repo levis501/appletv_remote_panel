@@ -126,6 +126,23 @@ async def cmd_scan():
     ]})
 
 
+async def cmd_scan_devices():
+    """Scan like cmd_scan but annotate each result with whether it's already configured."""
+    import pyatv
+    found = await pyatv.scan(asyncio.get_running_loop(), timeout=5)
+    cfg = load_config()
+    known_ids = {d["id"] for d in cfg.get("devices", [])}
+    out({"devices": [
+        {
+            "name":    a.name,
+            "id":      a.identifier,
+            "address": str(a.address),
+            "known":   a.identifier in known_ids,
+        }
+        for a in found
+    ]})
+
+
 async def cmd_status(entry):
     import pyatv
     from pyatv.const import DeviceState
@@ -191,6 +208,8 @@ async def cmd_get_metadata(entry):
 
         # Duration attribute name varies between pyatv versions
         duration = getattr(p, "total_time", None) or getattr(p, "duration", None)
+        app = getattr(p, "app", None)
+        app_id = app.identifier if (app and hasattr(app, "identifier")) else None
 
         out({
             "device_state": str(p.device_state),
@@ -200,6 +219,7 @@ async def cmd_get_metadata(entry):
             "series":   series,
             "position": p.position,  # int seconds or None
             "duration": duration,    # int seconds or None
+            "app_id":   app_id,
         })
     finally:
         atv.close()
@@ -337,6 +357,32 @@ def main():
             ],
             "selected": cfg.get("selected"),
         })
+        return
+
+    if command == "scan_devices":
+        asyncio.run(cmd_scan_devices())
+        return
+
+    if command == "select_device":
+        if len(args) < 2:
+            die("select_device requires a device_id argument")
+        cfg = load_config()
+        cfg["selected"] = args[1]
+        save_config(cfg)
+        out({"selected": args[1]})
+        return
+
+    if command == "remove_device":
+        if len(args) < 2:
+            die("remove_device requires a device_id argument")
+        device_id_rm = args[1]
+        cfg = load_config()
+        cfg["devices"] = [d for d in cfg.get("devices", []) if d["id"] != device_id_rm]
+        if cfg.get("selected") == device_id_rm:
+            remaining = cfg.get("devices", [])
+            cfg["selected"] = remaining[0]["id"] if remaining else None
+        save_config(cfg)
+        out({"removed": device_id_rm})
         return
 
     if len(args) < 2:

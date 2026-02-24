@@ -38,6 +38,7 @@ fi
 echo ""
 echo "[2/6] Creating config directory..."
 mkdir -p "${HELPER_DIR}"
+mkdir -p "${HELPER_DIR}/icons"   # cache dir for downloaded app icons
 echo "  ${HELPER_DIR}"
 
 # ── 3. Python venv + pyatv ────────────────────────────────────────────────────
@@ -83,11 +84,12 @@ echo ""
 echo "[5/6] Installing GNOME Shell extension..."
 
 mkdir -p "${EXTENSION_DEST}"
-cp "${EXTENSION_SRC}/metadata.json"  "${EXTENSION_DEST}/metadata.json"
-cp "${EXTENSION_SRC}/extension.js"   "${EXTENSION_DEST}/extension.js"
-cp "${EXTENSION_SRC}/stylesheet.css" "${EXTENSION_DEST}/stylesheet.css"
-cp "${EXTENSION_SRC}/appDialog.js"   "${EXTENSION_DEST}/appDialog.js"
-cp "${EXTENSION_SRC}/appChooser.js"  "${EXTENSION_DEST}/appChooser.js"
+cp "${EXTENSION_SRC}/metadata.json"   "${EXTENSION_DEST}/metadata.json"
+cp "${EXTENSION_SRC}/extension.js"    "${EXTENSION_DEST}/extension.js"
+cp "${EXTENSION_SRC}/stylesheet.css"  "${EXTENSION_DEST}/stylesheet.css"
+cp "${EXTENSION_SRC}/appDialog.js"    "${EXTENSION_DEST}/appDialog.js"
+cp "${EXTENSION_SRC}/appChooser.js"   "${EXTENSION_DEST}/appChooser.js"
+cp "${EXTENSION_SRC}/deviceDialog.js" "${EXTENSION_DEST}/deviceDialog.js"
 
 if [ -f "${EXTENSION_SRC}/atv_remote.png" ]; then
     cp "${EXTENSION_SRC}/atv_remote.png" "${EXTENSION_DEST}/atv_remote.png"
@@ -144,8 +146,24 @@ PYEOF
 fi
 
 # ── Optional: configure devices now ──────────────────────────────────────────
-read -r -p "Would you like to configure devices now? [Y/n]: " _setup_answer || _setup_answer="n"
-_setup_answer="${_setup_answer:-Y}"
+# Default to N when devices are already configured, Y on a fresh install.
+_has_devices=false
+if [ -f "${HELPER_DIR}/devices.json" ]; then
+    if "${VENV_PYTHON}" -c \
+        "import json,sys; d=json.load(open('${HELPER_DIR}/devices.json')); sys.exit(0 if d.get('devices') else 1)" \
+        2>/dev/null; then
+        _has_devices=true
+    fi
+fi
+if $_has_devices; then
+    _setup_prompt="Would you like to configure devices now? [y/N]: "
+    _setup_default="N"
+else
+    _setup_prompt="Would you like to configure devices now? [Y/n]: "
+    _setup_default="Y"
+fi
+read -r -p "${_setup_prompt}" _setup_answer || _setup_answer=""
+_setup_answer="${_setup_answer:-${_setup_default}}"
 if [[ "${_setup_answer,,}" =~ ^(y|yes)$ ]]; then
     echo ""
     "${HELPER_DIR}/atv_setup.py" || true

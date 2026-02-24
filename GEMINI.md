@@ -45,6 +45,15 @@ If the UI works but commands (play, pause, volume) fail, or metadata isn't updat
     ```
   - Note: MRP protocol is required for remote control and most metadata.
 
+## Documentation Update Policy
+
+Keep AI instruction files current after every significant change:
+
+- **After completing a milestone or feature**: Update `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` to reflect new architecture, key files, or workflows.
+- **After fixing a bug**: Note any patterns or gotchas discovered.
+- **After adding or removing files or directories**: Update the relevant sections.
+- **After failing or passing tests, or identifying new constraints**: Record them so future sessions start with correct context.
+
 ## Feature Update Guidelines
 
 When implementing new features, consider the boundary between the JS frontend and the Python backend.

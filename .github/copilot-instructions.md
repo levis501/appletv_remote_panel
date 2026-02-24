@@ -54,6 +54,15 @@ The workspace contains:
 - For debugging, include relevant log excerpts or error messages.
 - If unsure where a change belongs, Copilot should suggest architecture and appropriate file(s).
 
+## Documentation Update Policy
+
+Keep AI instruction files current after every significant change:
+
+- **After completing a milestone or feature**: Update `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` to reflect new architecture, key files, or workflows.
+- **After fixing a bug**: Note any patterns or gotchas discovered.
+- **After adding or removing files or directories**: Update the relevant sections in all three files.
+- **After failing or passing tests, or identifying new constraints**: Record them so future sessions start with correct context.
+
 ## Notes
 
 - Changes in development workspace must be installed via `install.sh` to reflect in the running extension.

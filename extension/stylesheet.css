@@ -42,8 +42,8 @@
 
 /* Remote graphic + hit regions */
 .appletv-remote-graphic {
-    min-width: 239px;
-    min-height: 893px;
+    min-width: 225px;
+    min-height: 877px;
 }
 
 .appletv-hit-btn {
@@ -180,4 +180,152 @@
 .appletv-text-entry:focus {
     border-color: rgba(100, 180, 255, 0.6);
     background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── App quick-launch buttons (below remote) ─────────────────────────────── */
+
+.appletv-quick-app-btn {
+    border-radius: 12px;
+    min-width: 66px;
+    min-height: 50px;
+    margin: 3px;
+    padding: 6px 4px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.appletv-quick-app-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.appletv-quick-app-btn:active {
+    background-color: rgba(255, 255, 255, 0.32);
+}
+
+/* Per-app brand colors — applied when no icon is available */
+.appletv-app-color-tv       { background-color: #1c1c1e; border-color: rgba(255,255,255,0.1); }
+.appletv-app-color-music    { background-color: #fc3c44; border-color: #fd6872; }
+.appletv-app-color-settings { background-color: #636366; border-color: #7a7a7c; }
+.appletv-app-color-youtube  { background-color: #ff0000; border-color: #ff4444; }
+.appletv-app-color-netflix  { background-color: #e50914; border-color: #ff2030; }
+.appletv-app-color-hulu     { background-color: #3dbb3d; border-color: #5ad65a; }
+
+.appletv-app-color-tv:hover       { background-color: #2c2c2e; }
+.appletv-app-color-music:hover    { background-color: #fd5c68; }
+.appletv-app-color-settings:hover { background-color: #7a7a7c; }
+.appletv-app-color-youtube:hover  { background-color: #ff3333; }
+.appletv-app-color-netflix:hover  { background-color: #ff0f1e; }
+.appletv-app-color-hulu:hover     { background-color: #5ad65a; }
+
+.appletv-quick-app-icon {
+    icon-size: 28px;
+}
+
+.appletv-quick-app-label {
+    font-size: 10px;
+    color: white;
+    text-align: center;
+}
+
+/* Issue 6: bright green border when this app is the currently active one */
+.appletv-quick-app-btn.appletv-app-active {
+    border: 2px solid #00ff00;
+    box-shadow: 0 0 6px rgba(0, 255, 0, 0.5);
+}
+
+/* ── Device management dialog ────────────────────────────────────────────── */
+
+.appletv-device-dialog-title {
+    font-size: 14px;
+    font-weight: bold;
+    padding: 0 0 10px 0;
+    color: white;
+}
+
+.appletv-device-scroll {
+    max-height: 300px;
+    min-width: 320px;
+}
+
+.appletv-device-list {
+    spacing: 4px;
+    padding: 4px 0;
+}
+
+.appletv-device-row {
+    spacing: 8px;
+    padding: 6px 4px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.appletv-device-dot {
+    font-size: 14px;
+    color: #26a269;
+    min-width: 16px;
+}
+
+.appletv-device-name {
+    font-size: 13px;
+    color: white;
+}
+
+.appletv-device-unregistered {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+.appletv-device-note {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    font-style: italic;
+}
+
+.appletv-device-btn {
+    border-radius: 5px;
+    padding: 3px 10px;
+    font-size: 11px;
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+.appletv-device-btn:hover {
+    background-color: rgba(255, 255, 255, 0.22);
+}
+
+.appletv-device-remove-btn {
+    background-color: rgba(200, 50, 50, 0.35);
+    border-color: rgba(220, 80, 80, 0.4);
+}
+
+.appletv-device-remove-btn:hover {
+    background-color: rgba(220, 60, 60, 0.5);
+}
+
+.appletv-device-none-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+    padding: 8px 4px;
+}
+
+.appletv-device-status {
+    font-size: 11px;
+    color: rgba(180, 220, 180, 0.85);
+    padding: 6px 2px 0;
+    font-style: italic;
+}
+
+/* App Selection Window Grid and Buttons */
+.app-chooser-grid {
+    padding: 10px;
+}
+
+.appletv-quick-app-btn.appletv-app-chooser-btn {
+    border-color: transparent;
+}
+
+.appletv-quick-app-btn.appletv-app-chooser-btn.appletv-app-active {
+    border-color: #00ff00;
 }

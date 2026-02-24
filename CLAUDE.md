@@ -75,6 +75,15 @@ Restart GNOME Shell to load extension changes:
 3. Update `install.sh` `pip install` commands if new Python packages are needed
 4. Keep styling consistent with `stylesheet.css` and GNOME Shell guidelines
 
+## Documentation Update Policy
+
+Keep AI instruction files current after every significant change:
+
+- **After completing a milestone or feature**: Update `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` to reflect new architecture, key files, or workflows.
+- **After fixing a bug**: Note any patterns or gotchas discovered.
+- **After adding or removing files or directories**: Update the Key Files section.
+- **After failing or passing tests, or identifying new constraints**: Record them so future sessions start with correct context.
+
 ## Pairing Notes
 
 - `atv_setup.py` is an interactive loop: choose `[a]` to scan and add/re-pair, `[r]` to remove a device, `[q]` to quit. Existing devices not selected in a run are preserved.

@@ -174,6 +174,45 @@ class ATVDaemon:
             save_config(cfg)
             return {"result": "ok"}
 
+        if cmd == "select_device":
+            if not args:
+                raise ValueError("select_device requires device_id")
+            cfg = load_config()
+            cfg["selected"] = args[0]
+            save_config(cfg)
+            return {"selected": args[0]}
+
+        if cmd == "remove_device":
+            if not args:
+                raise ValueError("remove_device requires device_id")
+            device_id = args[0]
+            cfg = load_config()
+            cfg["devices"] = [d for d in cfg.get("devices", []) if d["id"] != device_id]
+            if cfg.get("selected") == device_id:
+                remaining = cfg.get("devices", [])
+                cfg["selected"] = remaining[0]["id"] if remaining else None
+            save_config(cfg)
+            await self._close_connection(device_id)
+            return {"removed": device_id}
+
+        if cmd == "scan_devices":
+            import pyatv as _pyatv
+            loop = asyncio.get_running_loop()
+            found = await _pyatv.scan(loop, timeout=5)
+            cfg = load_config()
+            known_ids = {d["id"] for d in cfg.get("devices", [])}
+            return {
+                "devices": [
+                    {
+                        "name":    str(a.name),
+                        "id":      a.identifier,
+                        "address": str(a.address),
+                        "known":   a.identifier in known_ids,
+                    }
+                    for a in found
+                ]
+            }
+
         # ── Commands that require a live connection ────────────────────────────
 
         if not args:
@@ -229,6 +268,8 @@ class ATVDaemon:
                     elif episode is not None:
                         series += f" E{episode}"
                 duration = getattr(p, "total_time", None) or getattr(p, "duration", None)
+                app = getattr(p, "app", None)
+                app_id = app.identifier if (app and hasattr(app, "identifier")) else None
                 return {
                     "device_state": str(p.device_state),
                     "title":    p.title  or "",
@@ -237,6 +278,7 @@ class ATVDaemon:
                     "series":   series,
                     "position": p.position,
                     "duration": duration,
+                    "app_id":   app_id,
                 }
             return await self._with_retry(device_id, _fn)
 

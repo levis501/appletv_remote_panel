@@ -11,6 +11,38 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { AppDialog } from './appDialog.js';
+import { DeviceDialog } from './deviceDialog.js';
+
+// ms to wait before firing left/right; a second tap within this window fires skip instead
+const DCLICK_MS = 400;
+
+// App button layout inside the remote widget.
+// Lowest hitbox bottom: y=566 (volume_down at y=483, h=83). App buttons start 12px below.
+const APP_BTNS_Y = 578;
+// 3 columns: 12px left margin, 59px btn, 12px gap, 59px btn, 12px gap, 59px btn, 12px right = 225px
+const APP_BTN_COLS = [12, 83, 154];
+const APP_BTN_W = 59;
+const APP_BTN_H = 50;
+const APP_BTN_ROW_H = APP_BTN_H + 12; // row height including gap
+
+const DEFAULT_FAVORITE_APPS = [
+    { id: 'com.apple.TVWatchList',  name: 'TV' },
+    { id: 'com.apple.TVMusic',      name: 'Music' },
+    { id: 'com.apple.TVSettings',   name: 'Settings' },
+    { id: 'com.google.ios.youtube', name: 'YouTube' },
+    { id: 'com.netflix.Netflix',    name: 'Netflix' },
+    { id: 'com.hulu.HuluTV',        name: 'Hulu' },
+];
+
+// CSS class to apply for each known app's brand color (defined in stylesheet.css)
+const APP_COLOR_CLASSES = {
+    'com.apple.TVWatchList':   'appletv-app-color-tv',
+    'com.apple.TVMusic':       'appletv-app-color-music',
+    'com.apple.TVSettings':    'appletv-app-color-settings',
+    'com.google.ios.youtube':  'appletv-app-color-youtube',
+    'com.netflix.Netflix':     'appletv-app-color-netflix',
+    'com.hulu.HuluTV':         'appletv-app-color-hulu',
+};
 
 
 const AppleTVIndicator = GObject.registerClass(
@@ -24,11 +56,9 @@ class AppleTVIndicator extends PanelMenu.Button {
             style_class: 'system-status-icon',
         }));
 
-        this._powerButtons = new Map();
-        this._statusLabels = new Map();
         this._powerStates = new Map();
-        this._deviceMenuItems = new Map();
         this._devices = new Map();
+
         // Pre-populate selected device from config so we can preconnect on first open
         this._selectedId = null;
         try {
@@ -43,6 +73,18 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._pollTimer = null;
         this._lastTitle = null;
 
+        // Issue 4: deferred-fire timers for left/right d-pad
+        this._dClickLeftTimer = null;
+        this._dClickRightTimer = null;
+
+        // Issue 6: currently active app id (from metadata polling)
+        this._currentAppId = null;
+
+        // App button references inside the remote widget (for refresh and active-border)
+        this._remoteWidget = null;
+        this._appBtnWidgets = [];
+        this._appBtnMap = new Map();
+
         // Persistent daemon state
         this._daemon = null;
         this._daemonStdin = null;
@@ -53,11 +95,8 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._buildMenu();
         this.menu.connect('open-state-changed', (_menu, isOpen) => {
             if (isOpen) {
-                // Preconnect to the selected device while the device list loads
-                if (this._selectedId) {
-                    this._send('power_state', this._selectedId).catch(() => {});
-                }
-                this._refreshDeviceList();
+                this._loadDevices();
+                this._refreshAppButtons();
             } else {
                 this._stopPolling();
             }
@@ -67,21 +106,15 @@ class AppleTVIndicator extends PanelMenu.Button {
     _buildMenu() {
         this.menu.removeAll();
 
-        this.deviceSection = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this.deviceSection);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        // --- Controls ---
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
+        // --- Remote graphic with overlaid hit regions and app buttons ---
         this._remoteControls();
 
+        // --- Position label ---
         this._positionLabel = new St.Label({ text: '', style_class: 'appletv-position-label' });
         const positionBin = new St.Bin({ child: this._positionLabel, x_align: Clutter.ActorAlign.CENTER });
         const positionItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         positionItem.add_child(positionBin);
         this.menu.addMenuItem(positionItem);
-
 
         // --- Metadata ---
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -105,7 +138,6 @@ class AppleTVIndicator extends PanelMenu.Button {
         metaItem.add_child(this._metaBox);
         this.menu.addMenuItem(metaItem);
 
-
         // --- Text Input ---
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         const textEntry = new St.Entry({
@@ -123,17 +155,14 @@ class AppleTVIndicator extends PanelMenu.Button {
                 textEntry.set_text('');
             }
         });
-
     }
 
     _remoteControls() {
-        const remoteWidth = 239;
-        const remoteHeight = 893;
-        const baseWidth = 225;
-        const baseHeight = 877;
-        const scaleX = remoteWidth / baseWidth;
-        const scaleY = remoteHeight / baseHeight;
-        const yOffset = 7;
+        // Both atv_remote.png and atv_remote_hitboxes.png are 225×877.
+        // Use natural image dimensions so hit-region coordinates map 1:1.
+        const remoteWidth  = 225;
+        const remoteHeight = 877;
+
         const remote = new St.Widget({
             style_class: 'appletv-remote-graphic',
             layout_manager: new Clutter.FixedLayout(),
@@ -144,16 +173,19 @@ class AppleTVIndicator extends PanelMenu.Button {
             `background-image: url("${this._extension.path}/atv_remote.png"); ` +
             'background-size: 100% 100%; background-repeat: no-repeat;'
         );
+        this._remoteWidget = remote;
 
         log(`AppleTV-Remote: loading remote graphic ${this._extension.path}/atv_remote.png`);
+
         const addHit = (command, x, y, w, h, className = '') => {
             const btn = new St.Button({
                 style_class: `appletv-hit-btn${className ? ` ${className}` : ''}`,
                 can_focus: true,
             });
             remote.add_child(btn);
-            btn.set_position(Math.round(x * scaleX), Math.round((y + yOffset) * scaleY));
-            btn.set_size(Math.round(w * scaleX), Math.round(h * scaleY));
+            // Coordinates from the 225×877 hitboxes PNG — no scaling needed.
+            btn.set_position(x, y);
+            btn.set_size(w, h);
             if (typeof command === 'function') {
                 btn.connect('button-press-event', () => {
                     command();
@@ -172,26 +204,57 @@ class AppleTVIndicator extends PanelMenu.Button {
             reactive: false,
         });
         remote.add_child(light);
-        light.set_position(Math.round(104 * scaleX), Math.round((45 + yOffset) * scaleY));
-        light.set_size(Math.round(16 * scaleX), Math.round(7 * scaleY));
+        light.set_position(104, 45);
+        light.set_size(16, 7);
         this._remoteLight = light;
         this._setRemoteReady(false);
 
-        // NOTE: Hit regions are derived from atv_remote_hitboxes.png.
+        // Issue 4: wait DCLICK_MS before firing left/right.
+        // A second tap within the window cancels the timer and fires the skip command.
+        const leftCmd = () => {
+            if (this._dClickLeftTimer) {
+                GLib.source_remove(this._dClickLeftTimer);
+                this._dClickLeftTimer = null;
+                this._send('skip_prev', this._selectedId);
+            } else {
+                this._dClickLeftTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, DCLICK_MS, () => {
+                    this._dClickLeftTimer = null;
+                    this._send('left', this._selectedId);
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
+        };
+        const rightCmd = () => {
+            if (this._dClickRightTimer) {
+                GLib.source_remove(this._dClickRightTimer);
+                this._dClickRightTimer = null;
+                this._send('skip_next', this._selectedId);
+            } else {
+                this._dClickRightTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, DCLICK_MS, () => {
+                    this._dClickRightTimer = null;
+                    this._send('right', this._selectedId);
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
+        };
+
+        // Hit regions from atv_remote_hitboxes.png (225×877).
+        // Issue 2: mid-green (0,128,0) top-left → device manager.
         const regions = [
-            { command: () => this._togglePower(), x: 133, y: 0, w: 92, h: 92 },
+            { command: () => this._openDeviceDialog(), x: 0,   y: 0,   w: 92,  h: 92 },
+            { command: () => this._togglePower(),       x: 133, y: 0,   w: 92,  h: 92 },
 
-            { command: 'up', x: 42, y: 78, w: 143, h: 64 },
-            { command: 'left', x: 5, y: 115, w: 65, h: 144 },
-            { command: 'select', x: 56, y: 130, w: 114, h: 111, className: 'appletv-hit-circle' },
-            { command: 'right', x: 157, y: 114, w: 67, h: 144 },
-            { command: 'down', x: 43, y: 230, w: 144, h: 66 },
+            { command: 'up',      x: 42,  y: 78,  w: 143, h: 64 },
+            { command: leftCmd,   x: 5,   y: 115, w: 65,  h: 144 },
+            { command: 'select',  x: 56,  y: 130, w: 114, h: 111, className: 'appletv-hit-circle' },
+            { command: rightCmd,  x: 157, y: 114, w: 67,  h: 144 },
+            { command: 'down',    x: 43,  y: 230, w: 144, h: 66 },
 
-            { command: 'menu', x: 21, y: 291, w: 85, h: 85 },
-            { command: 'home', x: 118, y: 293, w: 83, h: 83 },
+            { command: 'menu',        x: 21,  y: 291, w: 85, h: 85 },
+            { command: 'home',        x: 118, y: 293, w: 83, h: 83 },
 
-            { command: 'play_pause', x: 22, y: 387, w: 83, h: 83 },
-            { command: 'volume_up', x: 119, y: 386, w: 83, h: 83 },
+            { command: 'play_pause',  x: 22,  y: 387, w: 83, h: 83 },
+            { command: 'volume_up',   x: 119, y: 386, w: 83, h: 83 },
             { command: () => this._openAppSelector(), x: 21, y: 482, w: 83, h: 83 },
             { command: 'volume_down', x: 120, y: 483, w: 83, h: 83 },
         ];
@@ -205,6 +268,128 @@ class AppleTVIndicator extends PanelMenu.Button {
         item.add_child(bin);
         this.menu.addMenuItem(item);
     }
+
+    // ── Issue 5: App quick-launch buttons (overlaid inside remote widget) ──
+
+    _refreshAppButtons() {
+        if (!this._remoteWidget) return;
+
+        // Remove old app buttons from the remote widget
+        for (const w of this._appBtnWidgets) {
+            w.destroy();
+        }
+        this._appBtnWidgets = [];
+        this._appBtnMap.clear();
+
+        const favorites = this._extension.getFavoriteAppObjects();
+        if (favorites.length === 0) return;
+
+        for (let i = 0; i < favorites.length; i++) {
+            const col = i % APP_BTN_COLS.length;
+            const row = Math.floor(i / APP_BTN_COLS.length);
+            const x = APP_BTN_COLS[col];
+            const y = APP_BTNS_Y + row * APP_BTN_ROW_H;
+
+            const btn = this._makeQuickAppButton(favorites[i]);
+            this._remoteWidget.add_child(btn);
+            btn.set_position(x, y);
+            btn.set_size(APP_BTN_W, APP_BTN_H);
+            this._appBtnWidgets.push(btn);
+            this._appBtnMap.set(favorites[i].id, btn);
+        }
+
+        // Re-apply active border for the currently playing app
+        this._updateActiveAppBorder(this._currentAppId);
+    }
+
+    _makeQuickAppButton(app) {
+        const iconFile = this._extension.getAppIconSync(app);
+        // Apply brand-color class only when no icon is available
+        const colorClass = iconFile ? null : (APP_COLOR_CLASSES[app.id] || null);
+        const styleClasses = ['appletv-quick-app-btn', ...(colorClass ? [colorClass] : [])].join(' ');
+
+        const btn = new St.Button({
+            style_class: styleClasses,
+            can_focus: true,
+        });
+
+        const box = new St.BoxLayout({ vertical: true, x_align: Clutter.ActorAlign.CENTER });
+
+        if (iconFile) {
+            const icon = new St.Icon({
+                gicon: new Gio.FileIcon({ file: iconFile }),
+                style_class: 'appletv-quick-app-icon',
+            });
+            box.add_child(icon);
+        }
+
+        const label = new St.Label({
+            text: app.name,
+            style_class: 'appletv-quick-app-label',
+            x_align: Clutter.ActorAlign.CENTER,
+        });
+        box.add_child(label);
+
+        btn.set_child(box);
+        btn.connect('button-press-event', () => {
+            if (this._selectedId) {
+                log(`[AppleTV] Quick-launching app ${app.name} (${app.id}) (prior app: ${this._currentAppId || 'unknown'})`);
+                this._send('launch_app', this._selectedId, app.id);
+            }
+            return Clutter.EVENT_STOP;
+        });
+
+        return btn;
+    }
+
+    // Issue 6: toggle the bright-green active border on matching app button
+    _updateActiveAppBorder(appId) {
+        this._currentAppId = appId;
+        for (const [id, btn] of this._appBtnMap) {
+            if (id === appId) {
+                btn.add_style_class_name('appletv-app-active');
+            } else {
+                btn.remove_style_class_name('appletv-app-active');
+            }
+        }
+    }
+
+    // ── Issue 2: Device management dialog ─────────────────────────────────
+
+    _openDeviceDialog() {
+        const dialog = new DeviceDialog(this, () => {
+            this._loadDevices();
+        });
+        dialog.open();
+    }
+
+    // ── Device loading (replaces old _refreshDeviceList UI) ───────────────
+
+    async _loadDevices() {
+        try {
+            const [stdout] = await this._send('list_devices');
+            const parsed = JSON.parse(stdout);
+            const devices = parsed.devices || [];
+
+            if (!this._selectedId && parsed.selected)
+                this._selectedId = parsed.selected;
+            if (!this._selectedId && devices.length > 0)
+                this._selectedId = devices[0].id;
+
+            this._devices.clear();
+            for (const d of devices)
+                this._devices.set(d.id, d);
+
+            if (this._selectedId) {
+                this._updatePowerStatus(this._selectedId);
+                this._startPolling();
+            }
+        } catch (e) {
+            log(`AppleTV-Remote _loadDevices error: ${e}`);
+        }
+    }
+
+    // ── Shared helpers ─────────────────────────────────────────────────────
 
     _setRemoteReady(isReady) {
         if (!this._remoteLight) return;
@@ -230,82 +415,6 @@ class AppleTVIndicator extends PanelMenu.Button {
         return btn;
     }
 
-    async _refreshDeviceList() {
-        this.deviceSection.removeAll();
-        this._powerButtons.clear();
-        this._statusLabels.clear();
-        this._powerStates.clear();
-        this._deviceMenuItems.clear();
-        this._devices.clear();
-
-        try {
-            const [stdout] = await this._send('list_devices');
-            const parsed = JSON.parse(stdout);
-            const devices = parsed.devices || [];
-
-            if (devices.length === 0) {
-                this.deviceSection.addMenuItem(new PopupMenu.PopupMenuItem(_('No devices configured. Run atv_setup.py to add devices.')));
-                return;
-            }
-
-            // Use saved selection from config if we don't have one yet
-            if (!this._selectedId && parsed.selected) {
-                this._selectedId = parsed.selected;
-            }
-
-            for (const device of devices) {
-                const item = new PopupMenu.PopupMenuItem(device.name);
-                item.connect('activate', () => this._selectDevice(device.id));
-
-                if (this._selectedId === device.id) {
-                    item.setOrnament(PopupMenu.Ornament.DOT);
-                }
-
-                // Status label: shows italic text only when not fully connected
-                const statusLabel = new St.Label({
-                    text: _('connecting\u2026'),
-                    style_class: 'appletv-status-label',
-                });
-                item.add_child(statusLabel);
-                this._statusLabels.set(device.id, statusLabel);
-                this._powerStates.set(device.id, 'pending');
-
-                // Power button
-                const powerBtn = this._button(null, 'system-shutdown-symbolic', 'appletv-power-btn');
-                powerBtn.connect('button-press-event', async (_actor, event) => {
-                    event.stop();
-                    const wasOn = this._powerStates.get(device.id) === 'on';
-                    const command = wasOn ? 'power_off' : 'power_on';
-                    this._updatePowerStatus(device.id, !wasOn); // Optimistic update
-                    try {
-                        await this._send(command, device.id);
-                    } catch(e) {
-                        this._updatePowerStatus(device.id, wasOn); // Revert on failure
-                    }
-                });
-                item.add_child(powerBtn);
-                this._powerButtons.set(device.id, powerBtn);
-                this._deviceMenuItems.set(device.id, item);
-                this._devices.set(device.id, device);
-
-                this.deviceSection.addMenuItem(item);
-
-                // Kick off async power state check — updates label when done
-                this._updatePowerStatus(device.id);
-            }
-
-            // Auto-select first device if nothing is selected
-            if (!this._selectedId && devices.length > 0) {
-                this._selectedId = devices[0].id;
-                this._deviceMenuItems.get(devices[0].id)?.setOrnament(PopupMenu.Ornament.DOT);
-                this._startPolling();
-            }
-        } catch (e) {
-            this.deviceSection.addMenuItem(new PopupMenu.PopupMenuItem(_('Error loading devices.')));
-            log(e);
-        }
-    }
-    
     async _openAppSelector() {
         log('[AppleTV] App selector button pressed');
         if (!this._selectedId) {
@@ -339,30 +448,15 @@ class AppleTVIndicator extends PanelMenu.Button {
     }
 
     _openAppDialog(device) {
-        const dialog = new AppDialog(this._extension, device, () => {});
+        const dialog = new AppDialog(this._extension, device, () => {
+            this._refreshAppButtons();
+        });
         dialog.open();
     }
 
-
     async _updatePowerStatus(deviceId, forceState) {
-        if (!this._statusLabels.has(deviceId)) return;
-        const label = this._statusLabels.get(deviceId);
-
         const setState = (state) => {
             this._powerStates.set(deviceId, state);
-            label.remove_style_class_name('appletv-status-unavailable');
-            if (state === 'pending') {
-                label.text = _('connecting\u2026');
-                label.visible = true;
-            } else if (state === 'unavailable') {
-                label.text = _('unavailable');
-                label.add_style_class_name('appletv-status-unavailable');
-                label.visible = true;
-            } else {
-                // on or off — device is reachable, no status message needed
-                label.text = '';
-                label.visible = false;
-            }
             if (deviceId === this._selectedId) {
                 this._setRemoteReady(state === 'on' || state === 'off');
             }
@@ -382,26 +476,13 @@ class AppleTVIndicator extends PanelMenu.Button {
         }
     }
 
-
     _selectDevice(deviceId) {
-        const prevId = this._selectedId;
         this._selectedId = deviceId;
-
-        // Update ornaments in-place without rebuilding the list
-        if (prevId && this._deviceMenuItems.has(prevId)) {
-            this._deviceMenuItems.get(prevId).setOrnament(PopupMenu.Ornament.NONE);
-        }
-        if (this._deviceMenuItems.has(deviceId)) {
-            this._deviceMenuItems.get(deviceId).setOrnament(PopupMenu.Ornament.DOT);
-        }
-
         this._stopPolling();
-        this._startPolling();
-
         const state = this._powerStates.get(deviceId);
         this._setRemoteReady(state === 'on' || state === 'off');
+        this._startPolling();
     }
-
 
     // --- Polling for metadata ---
     _startPolling() {
@@ -428,7 +509,7 @@ class AppleTVIndicator extends PanelMenu.Button {
             this._updateMetadata(res);
             this._updatePowerStatus(this._selectedId);
         } catch (e) {
-            this._updateMetadata(null); // Clear fields on error
+            this._updateMetadata(null);
         }
     }
 
@@ -437,6 +518,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._metaBox.visible = !!hasData;
         if (!hasData) {
             this._lastTitle = null;
+            this._updateActiveAppBorder(null);
             return;
         }
 
@@ -453,13 +535,16 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._metaSeries.visible = !!r.series;
 
         this._updatePosition(r.position, r.duration);
-        
+
         if (r.title !== this._lastTitle) {
             this._lastTitle = r.title;
             this._fetchArtwork();
         }
+
+        // Issue 6: highlight the button for the currently active app
+        this._updateActiveAppBorder(r.app_id ?? null);
     }
-    
+
     _updatePosition(pos, dur) {
         if (pos && dur) {
             this._positionLabel.text = `${this._formatTime(pos)} / ${this._formatTime(dur)}`;
@@ -478,7 +563,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
         return `${m}:${pad(s)}`;
     }
-    
+
     async _fetchArtwork() {
         if (!this._selectedId) {
              this._artwork.gicon = null;
@@ -599,6 +684,14 @@ class AppleTVIndicator extends PanelMenu.Button {
 
     destroy() {
         this._stopPolling();
+        if (this._dClickLeftTimer) {
+            GLib.source_remove(this._dClickLeftTimer);
+            this._dClickLeftTimer = null;
+        }
+        if (this._dClickRightTimer) {
+            GLib.source_remove(this._dClickRightTimer);
+            this._dClickRightTimer = null;
+        }
         this._cleanupDaemon();
         super.destroy();
     }
@@ -617,24 +710,90 @@ export default class AppleTVRemoteExtension extends Extension {
         this._indicator?.destroy();
         this._indicator = null;
     }
-    
-    // App Management Logic that will be used by appChooser and appDialog
-    
-    getFavoriteApps(deviceId) {
-        // Mock implementation. In the future, this will read from a settings file.
-        return [];
+
+    // ── App favorites config ───────────────────────────────────────────────
+
+    _appsConfigPath() {
+        return `${GLib.get_home_dir()}/.config/appletv-remote/apps.json`;
     }
-    
-    setAppFavorite(deviceId, appId, isFavorite) {
-        // Mock implementation. In the future, this will write to a settings file.
-        log(`Setting app ${appId} as favorite=${isFavorite} for device ${deviceId}`);
+
+    /**
+     * Returns [{id, name}, ...] for the user's favourite apps.
+     * Falls back to DEFAULT_FAVORITE_APPS when no config file exists yet.
+     */
+    getFavoriteAppObjects() {
+        try {
+            const [ok, bytes] = GLib.file_get_contents(this._appsConfigPath());
+            if (ok) {
+                const cfg = JSON.parse(new TextDecoder().decode(bytes));
+                if (cfg.favorites?.length > 0)
+                    return cfg.favorites;
+            }
+        } catch (_e) {}
+        return [...DEFAULT_FAVORITE_APPS];
     }
-    
+
+    /** Returns an array of favourite app IDs (for AppChooser checkbox state). */
+    getFavoriteApps(_deviceId) {
+        return this.getFavoriteAppObjects().map(a => a.id);
+    }
+
+    /**
+     * Add or remove an app from favourites and persist the change.
+     * @param {string}      _deviceId  Unused — favourites are global across devices.
+     * @param {{id, name}}  app        App object from the device's app list.
+     * @param {boolean}     isFavorite Whether to add (true) or remove (false).
+     */
+    setAppFavorite(_deviceId, app, isFavorite) {
+        const favorites = this.getFavoriteAppObjects();
+        const idx = favorites.findIndex(a => a.id === app.id);
+        if (isFavorite && idx === -1) {
+            favorites.push({ id: app.id, name: app.name });
+        } else if (!isFavorite && idx !== -1) {
+            favorites.splice(idx, 1);
+        } else {
+            return; // no change needed
+        }
+
+        try {
+            const file = Gio.File.new_for_path(this._appsConfigPath());
+            file.replace_contents(
+                new TextEncoder().encode(JSON.stringify({ favorites }, null, 2)),
+                null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null
+            );
+        } catch (e) {
+            log(`AppleTV-Remote: failed to save apps config: ${e}`);
+        }
+    }
+
+    // ── App icon resolution ────────────────────────────────────────────────
+
+    /**
+     * Synchronously check for a bundled or cached icon for the given app.
+     * Priority:
+     *   1. extension/icons/apps/{bundle_id}.png   (bundled with extension)
+     *   2. extension/icons/apps/{name.lower()}.png
+     *   3. ~/.config/appletv-remote/icons/{bundle_id}.png  (downloaded/cached)
+     * Returns a Gio.File if found, null otherwise.
+     */
+    getAppIconSync(app) {
+        const iconDir  = `${this.path}/icons/apps`;
+        const cacheDir = `${GLib.get_home_dir()}/.config/appletv-remote/icons`;
+
+        for (const p of [
+            `${iconDir}/${app.id}.png`,
+            `${iconDir}/${app.name.toLowerCase()}.png`,
+            `${cacheDir}/${app.id}.png`,
+        ]) {
+            const f = Gio.File.new_for_path(p);
+            if (f.query_exists(null)) return f;
+        }
+        return null;
+    }
+
+    /** Async wrapper around getAppIconSync (kept for AppChooser compatibility). */
     async getAppIcon(app) {
-        // In the future, this could download icons. For now, use a placeholder.
-        const iconDir = this.path + '/icons/apps';
-        const iconFile = Gio.File.new_for_path(iconDir + '/placeholder.png');
-        return iconFile.query_exists(null) ? iconFile : null;
+        return this.getAppIconSync(app);
     }
 
     async getApps(deviceId) {

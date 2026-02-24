@@ -15,4 +15,5 @@ HITBOX_COLORMAP.md
     Gray - (128, 128, 128) - volume up
     Black - (0, 0, 0) - volume down
     White - (255, 255, 255) - open app selector
+    Mid Green - (0, 128, 0) - open device selector
 

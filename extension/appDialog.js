@@ -43,7 +43,7 @@ class AppDialog extends ModalDialog.ModalDialog {
 
         this.setButtons([
             {
-                label: _('Close'),
+                label: _('OK'),
                 action: () => this.close(),
                 key: Clutter.KEY_Escape,
             },
