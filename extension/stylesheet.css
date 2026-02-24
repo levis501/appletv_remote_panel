@@ -1,0 +1,174 @@
+/* stylesheet.css — Apple TV Remote GNOME Shell Extension */
+
+/* Control rows (playback, volume, system) */
+.appletv-control-row {
+    spacing: 8px;
+    padding: 4px 0;
+}
+
+/* Icon buttons: play/pause, skip, volume */
+.appletv-icon-btn {
+    border-radius: 5px;
+    padding: 6px;
+    min-width: 34px;
+    min-height: 34px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.appletv-icon-btn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.appletv-icon-btn:active {
+    background-color: rgba(255, 255, 255, 0.30);
+}
+
+/* Text buttons: Menu, Top Menu, Home */
+.appletv-text-btn {
+    border-radius: 5px;
+    padding: 4px 12px;
+    min-height: 28px;
+    font-size: 12px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.appletv-text-btn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.appletv-text-btn:active {
+    background-color: rgba(255, 255, 255, 0.30);
+}
+
+/* D-pad layout */
+.appletv-nav-grid {
+    spacing: 4px;
+}
+
+.appletv-nav-row {
+    spacing: 4px;
+}
+
+/* Arrow / select buttons */
+.appletv-nav-btn {
+    border-radius: 5px;
+    padding: 4px;
+    min-width: 36px;
+    min-height: 32px;
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.appletv-nav-btn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.appletv-nav-btn:active {
+    background-color: rgba(255, 255, 255, 0.30);
+}
+
+/* ── Power button (shown next to each device name) ───────────────────────── */
+
+.appletv-power-btn {
+    border-radius: 50%;
+    padding: 2px 5px;
+    min-width: 24px;
+    min-height: 24px;
+    font-size: 13px;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.appletv-power-btn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Green dot shown next to device name when ON */
+.appletv-power-indicator-on {
+    color: #3f3;
+}
+
+/* Grey dot shown next to device name when OFF */
+.appletv-power-indicator-off {
+    color: rgba(255, 255, 255, 0.2);
+}
+
+.appletv-app-btn {
+    padding: 6px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+}
+
+.appletv-app-btn:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.appletv-app-btn:active {
+    background-color: rgba(255, 255, 255, 0.30);
+}
+
+/* ── Position / duration label (below playback buttons) ─────────────────── */
+
+.appletv-position-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 2px 0 4px;
+}
+
+/* ── Metadata section (artwork + text, below volume) ─────────────────────── */
+
+.appletv-meta-box {
+    spacing: 10px;
+    padding: 4px 0;
+}
+
+/* Left column: square artwork thumbnail */
+.appletv-artwork {
+    min-width:  64px;
+    min-height: 64px;
+    border-radius: 4px;
+}
+
+/* Right column: stacked text labels */
+.appletv-meta-text-box {
+    spacing: 2px;
+}
+
+.appletv-meta-title {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.appletv-meta-artist {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.appletv-meta-album {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+}
+
+.appletv-meta-series {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── Text entry (bottom of menu) ─────────────────────────────────────────── */
+
+.appletv-text-entry {
+    min-height: 28px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    padding: 0 8px;
+}
+
+.appletv-text-entry:focus {
+    border-color: rgba(100, 180, 255, 0.6);
+    background-color: rgba(255, 255, 255, 0.12);
+}
