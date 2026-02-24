@@ -148,7 +148,7 @@ class AppleTVIndicator extends PanelMenu.Button {
             can_focus: true,
             style_class: 'appletv-text-entry',
         });
-        const textEntryItem = new PopupMenu.PopupBaseMenuItem();
+        const textEntryItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         textEntryItem.add_child(textEntry);
         this.menu.addMenuItem(textEntryItem);
         textEntry.clutter_text.connect('activate', () => {
@@ -165,7 +165,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         const row = new St.BoxLayout({ style_class: 'appletv-control-row' });
         buildFn(row);
         const bin = new St.Bin({ child: row, x_align: Clutter.ActorAlign.CENTER });
-        const item = new PopupMenu.PopupBaseMenuItem();
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         item.add_child(bin);
         this.menu.addMenuItem(item);
     }
@@ -173,26 +173,29 @@ class AppleTVIndicator extends PanelMenu.Button {
     _navItem() {
         const grid = new St.BoxLayout({ vertical: true, style_class: 'appletv-nav-grid' });
 
+        // Top row: Up button
         const row1 = new St.BoxLayout({ style_class: 'appletv-nav-row' });
-        row1.add_child(new St.Label({ text: ' ', style: 'min-width: 36px;' }));
-        row1.add_child(this._button('up', 'pan-up-symbolic', 'appletv-nav-btn'));
-        row1.add_child(new St.Label({ text: ' ', style: 'min-width: 36px;' }));
+        row1.add_child(new St.Widget({ style: 'min-width: 44px;' }));
+        row1.add_child(this._button('up', 'pan-up-symbolic', 'appletv-nav-btn appletv-nav-up'));
+        row1.add_child(new St.Widget({ style: 'min-width: 44px;' }));
         grid.add_child(row1);
 
+        // Middle row: Left, Select, Right
         const row2 = new St.BoxLayout({ style_class: 'appletv-nav-row' });
-        row2.add_child(this._button('left', 'pan-start-symbolic', 'appletv-nav-btn'));
-        row2.add_child(this._button('select', 'media-record-symbolic', 'appletv-nav-btn'));
-        row2.add_child(this._button('right', 'pan-end-symbolic', 'appletv-nav-btn'));
+        row2.add_child(this._button('left', 'pan-start-symbolic', 'appletv-nav-btn appletv-nav-side'));
+        row2.add_child(this._button('select', 'media-record-symbolic', 'appletv-nav-btn appletv-nav-center'));
+        row2.add_child(this._button('right', 'pan-end-symbolic', 'appletv-nav-btn appletv-nav-side'));
         grid.add_child(row2);
 
+        // Bottom row: Down button
         const row3 = new St.BoxLayout({ style_class: 'appletv-nav-row' });
-        row3.add_child(new St.Label({ text: ' ', style: 'min-width: 36px;' }));
-        row3.add_child(this._button('down', 'pan-down-symbolic', 'appletv-nav-btn'));
-        row3.add_child(new St.Label({ text: ' ', style: 'min-width: 36px;' }));
+        row3.add_child(new St.Widget({ style: 'min-width: 44px;' }));
+        row3.add_child(this._button('down', 'pan-down-symbolic', 'appletv-nav-btn appletv-nav-down'));
+        row3.add_child(new St.Widget({ style: 'min-width: 44px;' }));
         grid.add_child(row3);
 
         const bin = new St.Bin({ child: grid, x_align: Clutter.ActorAlign.CENTER });
-        const item = new PopupMenu.PopupBaseMenuItem();
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         item.add_child(bin);
         this.menu.addMenuItem(item);
     }

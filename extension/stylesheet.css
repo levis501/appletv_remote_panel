@@ -42,29 +42,72 @@
 
 /* D-pad layout */
 .appletv-nav-grid {
-    spacing: 4px;
+    spacing: 0px;
+    padding: 6px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 28px;
 }
 
 .appletv-nav-row {
-    spacing: 4px;
+    spacing: 0px;
+    margin: 0px;
 }
 
-/* Arrow / select buttons */
+/* Arrow / select buttons - base style */
 .appletv-nav-btn {
-    border-radius: 5px;
-    padding: 4px;
-    min-width: 36px;
-    min-height: 32px;
-    font-size: 14px;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 16px;
     background-color: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
 }
 
 .appletv-nav-btn:hover {
     background-color: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.22);
 }
 
 .appletv-nav-btn:active {
     background-color: rgba(255, 255, 255, 0.30);
+    border-color: rgba(255, 255, 255, 0.34);
+}
+
+/* Center select button - larger and circular */
+.appletv-nav-center {
+    border-radius: 50%;
+    min-width: 56px;
+    min-height: 56px;
+    padding: 10px;
+    background-color: rgba(100, 180, 255, 0.14);
+    border-color: rgba(100, 180, 255, 0.22);
+}
+
+.appletv-nav-center:hover {
+    background-color: rgba(100, 180, 255, 0.22);
+    border-color: rgba(100, 180, 255, 0.32);
+}
+
+.appletv-nav-center:active {
+    background-color: rgba(100, 180, 255, 0.36);
+    border-color: rgba(100, 180, 255, 0.44);
+}
+
+/* Side buttons - fully rounded */
+.appletv-nav-side {
+    border-radius: 22px;
+}
+
+/* Up button - rounded top */
+.appletv-nav-up {
+    border-radius: 22px 22px 8px 8px;
+}
+
+/* Down button - rounded bottom */
+.appletv-nav-down {
+    border-radius: 8px 8px 22px 22px;
 }
 
 /* ── Power button (shown next to each device name) ───────────────────────── */
