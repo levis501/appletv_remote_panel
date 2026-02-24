@@ -31,13 +31,15 @@ class AppleTVIndicator extends PanelMenu.Button {
     _init(extension) {
         super._init(0.0, 'Apple TV Remote', false);
         this._extension = extension;
+        const iconFile = Gio.File.new_for_path(`${this._extension.path}/icons/appletv-symbolic.svg`);
         this.add_child(new St.Icon({
-            icon_name: 'video-display-symbolic',
+            gicon: new Gio.FileIcon({ file: iconFile }),
             style_class: 'system-status-icon',
         }));
 
         this._powerButtons = new Map();
-        this._powerIndicators = new Map();
+        this._statusLabels = new Map();
+        this._powerStates = new Map();
         this._deviceMenuItems = new Map();
         this._selectedId = null;
         this._pollTimer = null;
@@ -203,7 +205,8 @@ class AppleTVIndicator extends PanelMenu.Button {
     async _refreshDeviceList() {
         this.deviceSection.removeAll();
         this._powerButtons.clear();
-        this._powerIndicators.clear();
+        this._statusLabels.clear();
+        this._powerStates.clear();
         this._deviceMenuItems.clear();
 
         try {
@@ -229,19 +232,20 @@ class AppleTVIndicator extends PanelMenu.Button {
                     item.setOrnament(PopupMenu.Ornament.DOT);
                 }
 
-                // Power indicator starts in "pending" state until async check resolves
-                const powerIndicator = new St.Icon({
-                    icon_name: 'media-record-symbolic',
-                    style_class: 'appletv-power-indicator-pending',
+                // Status label: shows italic text only when not fully connected
+                const statusLabel = new St.Label({
+                    text: _('connecting\u2026'),
+                    style_class: 'appletv-status-label',
                 });
-                item.add_child(powerIndicator);
-                this._powerIndicators.set(device.id, powerIndicator);
+                item.add_child(statusLabel);
+                this._statusLabels.set(device.id, statusLabel);
+                this._powerStates.set(device.id, 'pending');
 
                 // Power button
                 const powerBtn = this._button(null, 'system-shutdown-symbolic', 'appletv-power-btn');
                 powerBtn.connect('button-press-event', async (_actor, event) => {
                     event.stop();
-                    const wasOn = powerIndicator.has_style_class_name('appletv-power-indicator-on');
+                    const wasOn = this._powerStates.get(device.id) === 'on';
                     const command = wasOn ? 'power_off' : 'power_on';
                     this._updatePowerStatus(device.id, !wasOn); // Optimistic update
                     try {
@@ -256,7 +260,7 @@ class AppleTVIndicator extends PanelMenu.Button {
 
                 this.deviceSection.addMenuItem(item);
 
-                // Kick off async power state check — updates indicator when done
+                // Kick off async power state check — updates label when done
                 this._updatePowerStatus(device.id);
             }
 
@@ -281,28 +285,37 @@ class AppleTVIndicator extends PanelMenu.Button {
 
 
     async _updatePowerStatus(deviceId, forceState) {
-        if (!this._powerIndicators.has(deviceId)) return;
-        const indicator = this._powerIndicators.get(deviceId);
+        if (!this._statusLabels.has(deviceId)) return;
+        const label = this._statusLabels.get(deviceId);
 
-        const setClass = (cls) => {
-            indicator.remove_style_class_name('appletv-power-indicator-on');
-            indicator.remove_style_class_name('appletv-power-indicator-off');
-            indicator.remove_style_class_name('appletv-power-indicator-pending');
-            indicator.remove_style_class_name('appletv-power-indicator-unavailable');
-            indicator.add_style_class_name(cls);
+        const setState = (state) => {
+            this._powerStates.set(deviceId, state);
+            label.remove_style_class_name('appletv-status-unavailable');
+            if (state === 'pending') {
+                label.text = _('connecting\u2026');
+                label.visible = true;
+            } else if (state === 'unavailable') {
+                label.text = _('unavailable');
+                label.add_style_class_name('appletv-status-unavailable');
+                label.visible = true;
+            } else {
+                // on or off — device is reachable, no status message needed
+                label.text = '';
+                label.visible = false;
+            }
         };
 
         if (typeof forceState === 'boolean') {
-            setClass(forceState ? 'appletv-power-indicator-on' : 'appletv-power-indicator-off');
+            setState(forceState ? 'on' : 'off');
             return;
         }
 
         try {
             const [stdout] = await this._send('power_state', deviceId);
             const res = JSON.parse(stdout);
-            setClass(res.on ? 'appletv-power-indicator-on' : 'appletv-power-indicator-off');
+            setState(res.on ? 'on' : 'off');
         } catch (e) {
-            setClass('appletv-power-indicator-unavailable');
+            setState('unavailable');
         }
     }
 

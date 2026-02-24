@@ -111,6 +111,30 @@ echo ""
 echo "=== Installation complete ==="
 echo ""
 
+# ── Show known devices (quick, no network scan) ───────────────────────────────
+if [ -f "${HELPER_DIR}/devices.json" ]; then
+    "${VENV_PYTHON}" <<'PYEOF'
+import json, os
+p = os.path.expanduser("~/.config/appletv-remote/devices.json")
+try:
+    cfg = json.load(open(p))
+    devices = cfg.get("devices", [])
+    if devices:
+        selected = cfg.get("selected")
+        print("Known devices:")
+        for d in devices:
+            marker = "  <-- selected" if d.get("id") == selected else ""
+            creds  = []
+            if "credentials_mrp"       in d: creds.append("mrp")
+            if "credentials_companion" in d: creds.append("companion")
+            state  = ("[" + ", ".join(creds) + "]") if creds else "[not paired]"
+            print(f"  - {d.get('name', '?'):20s}  {state}{marker}")
+        print()
+except Exception:
+    pass
+PYEOF
+fi
+
 # ── Optional: configure devices now ──────────────────────────────────────────
 read -r -p "Would you like to configure devices now? [Y/n]: " _setup_answer || _setup_answer="n"
 _setup_answer="${_setup_answer:-Y}"

@@ -85,24 +85,16 @@
     border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Green dot shown next to device name when ON */
-.appletv-power-indicator-on {
-    color: #3f3;
+/* Italic status text shown next to device name when not fully connected */
+.appletv-status-label {
+    font-size: 10px;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.45);
+    padding: 0 4px;
 }
 
-/* Grey dot shown next to device name when OFF */
-.appletv-power-indicator-off {
-    color: rgba(255, 255, 255, 0.2);
-}
-
-/* Amber dot shown while waiting for connection state */
-.appletv-power-indicator-pending {
-    color: rgba(255, 180, 0, 0.6);
-}
-
-/* Dim red dot shown when device is unreachable */
-.appletv-power-indicator-unavailable {
-    color: rgba(255, 80, 80, 0.4);
+.appletv-status-label.appletv-status-unavailable {
+    color: rgba(255, 100, 100, 0.7);
 }
 
 .appletv-app-btn {
