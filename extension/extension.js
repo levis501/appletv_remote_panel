@@ -191,6 +191,17 @@ class AppleTVIndicator extends PanelMenu.Button {
                     command();
                     return Clutter.EVENT_STOP;
                 });
+            } else if (typeof command === 'object' && command.press) {
+                btn.connect('button-press-event', () => {
+                    command.press();
+                    return Clutter.EVENT_STOP;
+                });
+                if (command.release) {
+                    btn.connect('button-release-event', () => {
+                        command.release();
+                        return Clutter.EVENT_STOP;
+                    });
+                }
             } else if (command) {
                 btn.connect('button-press-event', () => {
                     this._send(command, this._selectedId);
@@ -238,6 +249,30 @@ class AppleTVIndicator extends PanelMenu.Button {
             }
         };
 
+        // Long press for select button
+        this._selectTimer = null;
+        let selectLongPressed = false;
+        const selectCmd = {
+            press: () => {
+                selectLongPressed = false;
+                this._selectTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+                    this._selectTimer = null;
+                    selectLongPressed = true;
+                    this._send('select_hold', this._selectedId);
+                    return GLib.SOURCE_REMOVE;
+                });
+            },
+            release: () => {
+                if (this._selectTimer) {
+                    GLib.source_remove(this._selectTimer);
+                    this._selectTimer = null;
+                }
+                if (!selectLongPressed) {
+                    this._send('select', this._selectedId);
+                }
+            }
+        };
+
         // Hit regions from atv_remote_hitboxes.png (225×877).
         // Issue 2: mid-green (0,128,0) top-left → device manager.
         const regions = [
@@ -246,7 +281,7 @@ class AppleTVIndicator extends PanelMenu.Button {
 
             { command: 'up',      x: 42,  y: 78,  w: 143, h: 64 },
             { command: leftCmd,   x: 5,   y: 115, w: 65,  h: 144 },
-            { command: 'select',  x: 56,  y: 130, w: 114, h: 111, className: 'appletv-hit-circle' },
+            { command: selectCmd, x: 56,  y: 130, w: 114, h: 111, className: 'appletv-hit-circle' },
             { command: rightCmd,  x: 157, y: 114, w: 67,  h: 144 },
             { command: 'down',    x: 43,  y: 230, w: 144, h: 66 },
 
@@ -383,9 +418,35 @@ class AppleTVIndicator extends PanelMenu.Button {
             if (this._selectedId) {
                 this._updatePowerStatus(this._selectedId);
                 this._startPolling();
+                this._validateFavorites();
             }
         } catch (e) {
             log(`AppleTV-Remote _loadDevices error: ${e}`);
+        }
+    }
+
+    async _validateFavorites() {
+        if (!this._selectedId) return;
+        try {
+            const [stdout] = await this._send('list_apps', this._selectedId);
+            const res = JSON.parse(stdout);
+            const apps = res.apps || [];
+            if (apps.length === 0) return;
+
+            const favorites = this._extension.getFavoriteAppObjects();
+            const appIds = new Set(apps.map(a => a.id));
+            let changed = false;
+            for (const fav of favorites) {
+                if (!appIds.has(fav.id)) {
+                    this._extension.setAppFavorite(this._selectedId, fav, false);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                this._refreshAppButtons();
+            }
+        } catch (e) {
+            log(`[AppleTV] Error validating favorites: ${e}`);
         }
     }
 
@@ -692,6 +753,10 @@ class AppleTVIndicator extends PanelMenu.Button {
             GLib.source_remove(this._dClickRightTimer);
             this._dClickRightTimer = null;
         }
+        if (this._selectTimer) {
+            GLib.source_remove(this._selectTimer);
+            this._selectTimer = null;
+        }
         this._cleanupDaemon();
         super.destroy();
     }
@@ -726,7 +791,7 @@ export default class AppleTVRemoteExtension extends Extension {
             const [ok, bytes] = GLib.file_get_contents(this._appsConfigPath());
             if (ok) {
                 const cfg = JSON.parse(new TextDecoder().decode(bytes));
-                if (cfg.favorites?.length > 0)
+                if (Array.isArray(cfg.favorites))
                     return cfg.favorites;
             }
         } catch (_e) {}

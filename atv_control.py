@@ -317,6 +317,7 @@ async def cmd_remote(entry, command):
             "next_track":  rc.next,           # next track / chapter
             "prev_track":  rc.previous,       # previous track / chapter
             "select":      rc.select,
+            "select_hold": lambda: rc.select(pyatv.const.InputAction.Hold),
             "up":          rc.up,
             "down":        rc.down,
             "left":        rc.left,

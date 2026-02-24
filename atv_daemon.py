@@ -323,12 +323,13 @@ class ATVDaemon:
         REMOTE_COMMANDS = {
             "play_pause", "stop", "volume_up", "volume_down",
             "skip_next", "skip_prev", "next_track", "prev_track",
-            "select", "up", "down", "left", "right",
+            "select", "select_hold", "up", "down", "left", "right",
             "menu", "home", "top_menu",
             "power_on", "power_off",
         }
         if cmd in REMOTE_COMMANDS:
             async def _fn(atv, _cmd=cmd):
+                import pyatv.const
                 rc = atv.remote_control
                 pw = atv.power
                 command_map = {
@@ -341,6 +342,7 @@ class ATVDaemon:
                     "next_track":  rc.next,
                     "prev_track":  rc.previous,
                     "select":      rc.select,
+                    "select_hold": lambda: rc.select(pyatv.const.InputAction.Hold),
                     "up":          rc.up,
                     "down":        rc.down,
                     "left":        rc.left,

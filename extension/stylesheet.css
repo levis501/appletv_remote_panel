@@ -186,8 +186,8 @@
 
 .appletv-quick-app-btn {
     border-radius: 12px;
-    min-width: 66px;
-    min-height: 50px;
+    width: 66px;
+    height: 50px;
     margin: 3px;
     padding: 6px 4px;
     background-color: rgba(255, 255, 255, 0.1);
@@ -235,11 +235,17 @@
 
 /* ── Device management dialog ────────────────────────────────────────────── */
 
+.appletv-device-dialog,
+.app-dialog {
+    background-color: #ffffff;
+    color: #000000;
+}
+
 .appletv-device-dialog-title {
     font-size: 14px;
     font-weight: bold;
     padding: 0 0 10px 0;
-    color: white;
+    color: black;
 }
 
 .appletv-device-scroll {
@@ -256,7 +262,7 @@
     spacing: 8px;
     padding: 6px 4px;
     border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 .appletv-device-dot {
@@ -267,17 +273,17 @@
 
 .appletv-device-name {
     font-size: 13px;
-    color: white;
+    color: black;
 }
 
 .appletv-device-unregistered {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(0, 0, 0, 0.5);
     font-style: italic;
 }
 
 .appletv-device-note {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(0, 0, 0, 0.45);
     font-style: italic;
 }
 
@@ -285,47 +291,61 @@
     border-radius: 5px;
     padding: 3px 10px;
     font-size: 11px;
-    background-color: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: white;
+    background-color: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    color: black;
 }
 
 .appletv-device-btn:hover {
-    background-color: rgba(255, 255, 255, 0.22);
+    background-color: rgba(0, 0, 0, 0.1);
 }
 
 .appletv-device-remove-btn {
-    background-color: rgba(200, 50, 50, 0.35);
+    background-color: rgba(200, 50, 50, 0.15);
     border-color: rgba(220, 80, 80, 0.4);
 }
 
 .appletv-device-remove-btn:hover {
-    background-color: rgba(220, 60, 60, 0.5);
+    background-color: rgba(220, 60, 60, 0.25);
 }
 
 .appletv-device-none-label {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(0, 0, 0, 0.6);
     font-style: italic;
     padding: 8px 4px;
 }
 
 .appletv-device-status {
     font-size: 11px;
-    color: rgba(180, 220, 180, 0.85);
+    color: rgba(0, 120, 0, 0.85);
     padding: 6px 2px 0;
     font-style: italic;
 }
 
 /* App Selection Window Grid and Buttons */
+.app-dialog-title {
+    font-size: 14px;
+    font-weight: bold;
+    padding: 0 0 10px 0;
+    color: black;
+}
+
 .app-chooser-grid {
     padding: 10px;
 }
 
 .appletv-quick-app-btn.appletv-app-chooser-btn {
     border-color: transparent;
+    width: 72px;
+    height: 56px;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.appletv-quick-app-btn.appletv-app-chooser-btn:hover {
+    background-color: rgba(0, 0, 0, 0.85);
 }
 
 .appletv-quick-app-btn.appletv-app-chooser-btn.appletv-app-active {
-    border-color: #00ff00;
+    border: 2px solid #00ff00;
 }
