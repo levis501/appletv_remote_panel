@@ -4,15 +4,25 @@
 
 A GNOME Shell extension that controls Apple TVs over the local network. Two main components:
 
-1. **Python Backend** (`atv_control.py`, `atv_setup.py`): Uses `pyatv` to communicate with Apple TVs via MRP, Companion, and AirPlay protocols. Outputs JSON to stdout/stderr.
-2. **GNOME Shell Extension** (`extension/`): GJS/JavaScript frontend providing a GNOME panel UI. Invokes the Python backend via `Gio.Subprocess` and parses JSON responses.
+1. **Python Backend** (`atv_daemon.py`, `atv_control.py`, `atv_setup.py`): Uses `pyatv` to communicate with Apple TVs via MRP, Companion, and AirPlay protocols.
+2. **GNOME Shell Extension** (`extension/`): GJS/JavaScript frontend providing a GNOME panel UI. Communicates with the backend via a persistent daemon process.
+
+### Backend architecture: persistent daemon
+
+The extension spawns `atv_daemon.py` once (on first `_send()` call) and keeps it alive for the session. The daemon maintains persistent pyatv connections per device, so button presses are fast (~50–150 ms) after the initial connection is established. Communication is newline-delimited JSON over stdin/stdout:
+
+- Request:  `{"id": "1", "cmd": "play_pause", "args": ["<device_id>"]}`
+- Response: `{"id": "1", "result": {}}` or `{"id": "1", "error": "message"}`
+
+`atv_control.py` is kept for direct testing and debugging from the command line.
 
 ## Key Files
 
-- `atv_control.py` — backend commands (list_devices, scan, status, play/pause, volume, app management, etc.)
+- `atv_daemon.py` — persistent daemon; maintains live pyatv connections; used by the extension at runtime
+- `atv_control.py` — one-shot CLI tool for testing backend commands directly
 - `atv_setup.py` — interactive device manager: scan/add/re-pair devices, remove devices
 - `install.sh` — sets up venv, installs `pyatv`, deploys extension and scripts
-- `extension/extension.js` — main extension entry point; `_send()` dispatches backend commands
+- `extension/extension.js` — main extension entry point; `_send()` writes to daemon stdin
 - `extension/appChooser.js`, `extension/appDialog.js` — UI subcomponents
 - `extension/stylesheet.css` — extension styles
 - `extension/metadata.json` — GNOME extension metadata
@@ -35,9 +45,9 @@ Restart GNOME Shell to load extension changes:
 
 ## Backend Development
 
-- Add new commands as handlers in `atv_control.py` using `sys.argv` parsing
-- Use `out()` for JSON success output, `die()` for JSON error output
-- Test backend commands directly from the venv:
+- Add new commands to **both** `atv_daemon.py` (`_dispatch` method) and `atv_control.py` (`main` function) so they stay in sync
+- `atv_daemon.py` uses `_respond(id, result=...)` / `_respond(id, error=...)`; `atv_control.py` uses `out()` / `die()`
+- Test commands directly from the venv (uses `atv_control.py`, not the daemon):
   ```bash
   ~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py status <device_id>
   ~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py play_pause <device_id>
@@ -60,7 +70,7 @@ Restart GNOME Shell to load extension changes:
 
 ## Adding New Features
 
-1. Add the `pyatv` call in `atv_control.py` (accepts args via `sys.argv`, returns JSON)
+1. Add the `pyatv` call in `atv_daemon.py` (`_dispatch` method) and mirror it in `atv_control.py`
 2. Add the UI element in `extension/` and wire it to `_send()`
 3. Update `install.sh` `pip install` commands if new Python packages are needed
 4. Keep styling consistent with `stylesheet.css` and GNOME Shell guidelines

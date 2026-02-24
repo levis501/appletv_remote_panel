@@ -12,19 +12,6 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { AppDialog } from './appDialog.js';
 
-// Helper to run async subprocess command with Promise
-async function execCommand(proc, cancellable) {
-    return new Promise((resolve, reject) => {
-        proc.communicate_utf8_async(null, cancellable, (proc, result) => {
-            try {
-                const [ok, stdout, stderr] = proc.communicate_utf8_finish(result);
-                resolve([stdout, stderr]);
-            } catch (e) {
-                reject(e);
-            }
-        });
-    });
-}
 
 const AppleTVIndicator = GObject.registerClass(
 class AppleTVIndicator extends PanelMenu.Button {
@@ -41,14 +28,35 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._statusLabels = new Map();
         this._powerStates = new Map();
         this._deviceMenuItems = new Map();
+        // Pre-populate selected device from config so we can preconnect on first open
         this._selectedId = null;
+        try {
+            const cfgPath = `${GLib.get_home_dir()}/.config/appletv-remote/devices.json`;
+            const [ok, bytes] = GLib.file_get_contents(cfgPath);
+            if (ok) {
+                const cfg = JSON.parse(new TextDecoder().decode(bytes));
+                if (cfg.selected) this._selectedId = cfg.selected;
+            }
+        } catch (_e) {}
+
         this._pollTimer = null;
         this._lastTitle = null;
         this._appsLoaded = false;
 
+        // Persistent daemon state
+        this._daemon = null;
+        this._daemonStdin = null;
+        this._daemonStdout = null;
+        this._pendingRequests = new Map();
+        this._cmdId = 0;
+
         this._buildMenu();
-        this.menu.connect('open-state-changed', (menu, isOpen) => {
+        this.menu.connect('open-state-changed', (_menu, isOpen) => {
             if (isOpen) {
+                // Preconnect to the selected device while the device list loads
+                if (this._selectedId) {
+                    this._send('power_state', this._selectedId).catch(() => {});
+                }
                 this._refreshDeviceList();
             } else {
                 this._stopPolling();
@@ -67,7 +75,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._appsSubmenu = new PopupMenu.PopupSubMenuMenuItem(_('Apps'));
         this.menu.addMenuItem(this._appsSubmenu);
 
-        this._appsSubmenu.menu.connect('open-state-changed', (menu, isOpen) => {
+        this._appsSubmenu.menu.connect('open-state-changed', (_menu, isOpen) => {
             if (isOpen && !this._appsLoaded) {
                 this._refreshApps();
             }
@@ -469,39 +477,103 @@ class AppleTVIndicator extends PanelMenu.Button {
     }
 
 
-    async _send(command, ...extraArgs) {
-        const helperPath = `${GLib.get_home_dir()}/.config/appletv-remote/atv_control.py`;
-        const argv = [helperPath, command, ...extraArgs.filter(a => a !== null)];
+    // ── Daemon lifecycle ───────────────────────────────────────────────────
 
-        const proc = new Gio.Subprocess({
-            argv,
-            flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
+    _ensureDaemon() {
+        if (this._daemon && !this._daemon.get_if_exited()) return;
+        if (this._daemon) this._cleanupDaemon();
+
+        const daemonPath = `${GLib.get_home_dir()}/.config/appletv-remote/atv_daemon.py`;
+        this._daemon = new Gio.Subprocess({
+            argv: [daemonPath],
+            flags: Gio.SubprocessFlags.STDIN_PIPE |
+                   Gio.SubprocessFlags.STDOUT_PIPE |
+                   Gio.SubprocessFlags.STDERR_PIPE,
         });
-        proc.init(null);
+        this._daemon.init(null);
 
-        const [stdout, stderr] = await execCommand(proc, null);
+        this._daemonStdin = new Gio.DataOutputStream({
+            base_stream: this._daemon.get_stdin_pipe(),
+        });
+        this._daemonStdout = new Gio.DataInputStream({
+            base_stream: this._daemon.get_stdout_pipe(),
+        });
+        this._pendingRequests = new Map();
+        this._cmdId = 0;
+        this._readLoop();
+    }
 
-        if (proc.get_exit_status() !== 0) {
-            log(`AppleTV-Remote Error: ${stderr}`);
-            throw new Error(stderr || 'Process failed');
-        }
-        
-        // Check for error reported in stdout json
-        try {
-            const res = JSON.parse(stdout);
-            if(res.error) {
-                log(`AppleTV-Remote Error: ${res.error}`);
-                throw new Error(res.error);
+    _readLoop() {
+        if (!this._daemonStdout) return;
+        this._daemonStdout.read_line_async(GLib.PRIORITY_DEFAULT, null, (stream, result) => {
+            try {
+                const [line] = stream.read_line_finish_utf8(result);
+                if (line !== null) {
+                    this._handleResponse(line);
+                    this._readLoop();
+                } else {
+                    // EOF — daemon exited unexpectedly
+                    this._cleanupDaemon();
+                }
+            } catch (e) {
+                log(`AppleTV-Remote daemon read error: ${e}`);
             }
-        } catch(e) {
-            // It's ok if stdout is not json
-        }
+        });
+    }
 
-        return [stdout, stderr];
+    _handleResponse(line) {
+        try {
+            const msg = JSON.parse(line);
+            const pending = this._pendingRequests.get(msg.id);
+            if (!pending) return;
+            this._pendingRequests.delete(msg.id);
+            if (msg.error) {
+                pending.reject(new Error(msg.error));
+            } else {
+                // Return [stdout_json, ''] to match the interface callers expect
+                pending.resolve([JSON.stringify(msg.result), '']);
+            }
+        } catch (e) {
+            log(`AppleTV-Remote daemon response parse error: ${e}`);
+        }
+    }
+
+    _cleanupDaemon() {
+        try { this._daemonStdin?.close(null); } catch (_e) {}
+        this._daemonStdin = null;
+        this._daemonStdout = null;
+        for (const [, pending] of this._pendingRequests) {
+            pending.reject(new Error('Daemon process exited'));
+        }
+        this._pendingRequests = new Map();
+        this._daemon = null;
+    }
+
+    // ── Command dispatch ───────────────────────────────────────────────────
+
+    async _send(command, ...extraArgs) {
+        this._ensureDaemon();
+        const id = String(++this._cmdId);
+        const payload = JSON.stringify({
+            id,
+            cmd: command,
+            args: extraArgs.filter(a => a !== null && a !== undefined),
+        }) + '\n';
+
+        return new Promise((resolve, reject) => {
+            this._pendingRequests.set(id, { resolve, reject });
+            try {
+                this._daemonStdin.put_string(payload, null);
+            } catch (e) {
+                this._pendingRequests.delete(id);
+                reject(e);
+            }
+        });
     }
 
     destroy() {
         this._stopPolling();
+        this._cleanupDaemon();
         super.destroy();
     }
 });
