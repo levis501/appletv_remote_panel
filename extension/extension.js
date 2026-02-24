@@ -89,10 +89,10 @@ class AppleTVIndicator extends PanelMenu.Button {
 
         // Playback
         this._centeredRow(row => {
-            row.add_child(this._button('previous_track', 'media-skip-backward-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('rewind', 'media-seek-backward-symbolic', 'appletv-icon-btn'));
+            row.add_child(this._button('prev_track', 'media-skip-backward-symbolic', 'appletv-icon-btn'));
+            row.add_child(this._button('skip_prev', 'media-seek-backward-symbolic', 'appletv-icon-btn'));
             row.add_child(this._button('play_pause', 'media-playback-start-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('fast_forward', 'media-seek-forward-symbolic', 'appletv-icon-btn'));
+            row.add_child(this._button('skip_next', 'media-seek-forward-symbolic', 'appletv-icon-btn'));
             row.add_child(this._button('next_track', 'media-skip-forward-symbolic', 'appletv-icon-btn'));
             row.add_child(this._button('stop', 'media-playback-stop-symbolic', 'appletv-icon-btn'));
         });
@@ -146,7 +146,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         textEntry.clutter_text.connect('activate', () => {
             const text = textEntry.get_text();
             if (text) {
-                this._send('keyboard_set', text);
+                this._send('keyboard_set', this._selectedId, text);
                 textEntry.set_text('');
             }
         });
@@ -197,7 +197,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         });
         btn.set_child(new St.Icon({ icon_name, style_class: 'popup-menu-icon' }));
         if (command) {
-            btn.connect('button-press-event', () => this._send(command));
+            btn.connect('button-press-event', () => this._send(command, this._selectedId));
         }
         return btn;
     }
@@ -351,12 +351,8 @@ class AppleTVIndicator extends PanelMenu.Button {
 
         try {
             const [stdout] = await this._send('list_apps', this._selectedId);
-            const apps = JSON.parse(stdout);
-
-            if (apps.error) {
-                this._appsSubmenu.menu.addMenuItem(new PopupMenu.PopupMenuItem(apps.error));
-                return;
-            }
+            const res = JSON.parse(stdout);
+            const apps = res.apps || [];
 
             if (apps.length === 0) {
                 this._appsSubmenu.menu.addMenuItem(new PopupMenu.PopupMenuItem(_('No apps found.')));
