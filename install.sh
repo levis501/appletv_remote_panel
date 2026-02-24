@@ -110,9 +110,19 @@ fi
 echo ""
 echo "=== Installation complete ==="
 echo ""
+
+# ── Optional: configure devices now ──────────────────────────────────────────
+read -r -p "Would you like to configure devices now? [Y/n]: " _setup_answer || _setup_answer="n"
+_setup_answer="${_setup_answer:-Y}"
+if [[ "${_setup_answer,,}" =~ ^(y|yes)$ ]]; then
+    echo ""
+    "${HELPER_DIR}/atv_setup.py" || true
+    echo ""
+fi
+
 echo "Next steps:"
 echo ""
-echo "  1. Pair your Apple TV(s) — run this once per device:"
+echo "  1. To add or manage devices at any time:"
 echo "     ${HELPER_DIR}/atv_setup.py"
 echo ""
 echo "  2. If the TV icon isn't visible in the top bar yet:"

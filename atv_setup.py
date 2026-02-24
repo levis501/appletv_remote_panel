@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-atv_setup.py — One-time Apple TV pairing and setup wizard.
+atv_setup.py — Apple TV device manager.
 
-Run this interactively to discover and pair Apple TVs on your network.
+Run this interactively to add, remove, or re-pair Apple TVs on your network.
 Credentials are saved to ~/.config/appletv-remote/devices.json.
 
 Usage:
@@ -34,6 +34,18 @@ def save_config(cfg):
     with open(CONFIG_PATH, "w") as f:
         json.dump(cfg, f, indent=2)
     print(f"\nConfig saved to {CONFIG_PATH}")
+
+
+def print_device_list(cfg):
+    devices = cfg.get("devices", [])
+    if not devices:
+        print("  (no devices configured)")
+        return
+    for i, d in enumerate(devices):
+        marker = "  <-- selected" if d["id"] == cfg.get("selected") else ""
+        has_mrp  = "mrp"         if "credentials_mrp"       in d else "NO MRP"
+        has_comp = "+ companion"  if "credentials_companion" in d else ""
+        print(f"  [{i}] {d['name']:20s}  [{has_mrp} {has_comp}]{marker}")
 
 
 async def discover_devices():
@@ -85,23 +97,30 @@ async def pair_protocol(atv_config, protocol_name):
         return None
 
 
-async def setup():
+async def cmd_add_devices(cfg):
+    """Scan the network and add or re-pair chosen devices."""
     atvs = await discover_devices()
 
     if not atvs:
         print("\nNo Apple TVs found.")
         print("Make sure your Apple TVs are powered on and on the same network.")
-        sys.exit(1)
+        return
+
+    configured_ids = {d["id"] for d in cfg.get("devices", [])}
 
     print(f"\nFound {len(atvs)} device(s):\n")
     for i, atv in enumerate(atvs):
-        info = atv.device_info
-        model = str(info.model_str) if info else "Unknown"
-        print(f"  [{i}] {atv.name}  ({atv.address})  [{model}]")
+        info    = atv.device_info
+        model   = str(info.model_str) if info else "Unknown"
+        already = "  [already configured]" if atv.identifier in configured_ids else ""
+        print(f"  [{i}] {atv.name}  ({atv.address})  [{model}]{already}")
         print(f"       id: {atv.identifier}")
 
     print()
-    selection = input("Enter number to configure (or 'all'): ").strip().lower()
+    selection = input("Enter number to configure (or 'all', or blank to cancel): ").strip().lower()
+
+    if not selection:
+        return
 
     if selection == "all":
         chosen = atvs
@@ -110,10 +129,7 @@ async def setup():
             chosen = [atvs[int(selection)]]
         except (ValueError, IndexError):
             print("Invalid selection.")
-            sys.exit(1)
-
-    cfg = load_config()
-    new_devices = []
+            return
 
     for atv_config in chosen:
         print(f"\n{'='*55}")
@@ -121,7 +137,7 @@ async def setup():
         print(f"  ID:          {atv_config.identifier}")
         print("="*55)
 
-        # Preserve any existing extra config (e.g. per-device settings)
+        # Preserve any existing per-device config (e.g. volume settings)
         existing = next(
             (d for d in cfg["devices"] if d["id"] == atv_config.identifier), None
         )
@@ -155,26 +171,86 @@ async def setup():
             if companion_creds:
                 entry["credentials_companion"] = companion_creds
 
-        new_devices.append(entry)
+        # Update existing entry in-place or append
+        if existing:
+            idx = cfg["devices"].index(existing)
+            cfg["devices"][idx] = entry
+        else:
+            cfg["devices"].append(entry)
+
+        # Auto-select if nothing is selected yet
+        if cfg.get("selected") is None:
+            cfg["selected"] = entry["id"]
+
         print(f"\n  '{atv_config.name}' configured.")
-
-    # Replace device list entirely with devices from this setup run
-    cfg["devices"] = new_devices
-
-    # Set selected to first device if current selection is gone or unset
-    known_ids = {d["id"] for d in new_devices}
-    if cfg.get("selected") not in known_ids:
-        cfg["selected"] = new_devices[0]["id"] if new_devices else None
 
     save_config(cfg)
 
-    print("\nSetup complete! Configured devices:")
-    for dev in cfg["devices"]:
-        marker = "  <-- selected" if dev["id"] == cfg["selected"] else ""
-        has_mrp = "mrp" if "credentials_mrp" in dev else "NO MRP"
-        has_comp = "+ companion" if "credentials_companion" in dev else ""
-        print(f"  - {dev['name']:20s}  [{has_mrp} {has_comp}]{marker}")
 
+def cmd_remove_device(cfg):
+    """Remove a device from the config."""
+    devices = cfg.get("devices", [])
+    if not devices:
+        print("  No devices to remove.")
+        return
+
+    print("\nConfigured devices:")
+    print_device_list(cfg)
+    print()
+
+    raw = input("Enter number to remove (or blank to cancel): ").strip()
+    if not raw:
+        return
+
+    try:
+        idx = int(raw)
+    except ValueError:
+        print("Invalid selection.")
+        return
+
+    if idx < 0 or idx >= len(devices):
+        print("Invalid selection.")
+        return
+
+    removed = devices.pop(idx)
+    print(f"  Removed '{removed['name']}'.")
+
+    # Update selected pointer if the removed device was selected
+    if cfg.get("selected") == removed["id"]:
+        cfg["selected"] = devices[0]["id"] if devices else None
+
+    save_config(cfg)
+
+
+async def setup():
+    while True:
+        cfg = load_config()
+        devices = cfg.get("devices", [])
+
+        print("\n=== Apple TV Remote — Device Manager ===\n")
+        print("Configured devices:")
+        print_device_list(cfg)
+
+        print("\nOptions:")
+        print("  [a] Scan and add / re-pair devices")
+        if devices:
+            print("  [r] Remove a device")
+        print("  [q] Quit / Done")
+
+        choice = input("\nChoice: ").strip().lower()
+
+        if choice in ("q", ""):
+            break
+        elif choice == "a":
+            await cmd_add_devices(cfg)
+        elif choice == "r" and devices:
+            cmd_remove_device(cfg)
+        else:
+            print("  Unknown option.")
+
+    print("\nDone. Configured devices:")
+    cfg = load_config()
+    print_device_list(cfg)
     print()
     print("Next: enable the GNOME Shell extension, or reload it if already enabled.")
     print("      gnome-extensions enable appletv-remote@local")
