@@ -39,7 +39,7 @@ class AppDialog extends ModalDialog.ModalDialog {
         this.contentLayout.add_child(scrollView);
 
         this._appChooser = new AppChooser(this._extension, this._atvDevice);
-        scrollView.add_actor(this._appChooser);
+        scrollView.add_child(this._appChooser);
 
         this.setButtons([
             {

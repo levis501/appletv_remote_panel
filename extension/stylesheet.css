@@ -67,6 +67,13 @@
     border-radius: 999px;
 }
 
+.appletv-remote-light {
+    background-color: rgb(0, 255, 0);
+    border-radius: 999px;
+    box-shadow: 0 0 6px rgba(0, 255, 0, 0.8);
+    opacity: 0;
+}
+
 /* ── Power button (shown next to each device name) ───────────────────────── */
 
 .appletv-power-btn {

@@ -185,6 +185,36 @@ class ATVDaemon:
                 return {"on": atv.power.power_state == PowerState.On}
             return await self._with_retry(device_id, _fn)
 
+        if cmd == "get_volume":
+            async def _fn(atv):
+                return {"volume": atv.audio.volume}
+            return await self._with_retry(device_id, _fn)
+
+        if cmd == "set_volume":
+            if len(args) < 2:
+                raise ValueError("set_volume requires level")
+            level = float(args[1])
+            if level < 0:
+                level = 0.0
+            if level > 100:
+                level = 100.0
+            async def _fn(atv, _level=level):
+                await atv.audio.set_volume(_level)
+                return {"volume": _level}
+            return await self._with_retry(device_id, _fn)
+
+        if cmd == "volume_mute":
+            async def _fn(atv):
+                try:
+                    await atv.audio.set_volume(0.0)
+                    return {"volume": 0}
+                except Exception:
+                    # Fallback: step volume down several times.
+                    for _ in range(10):
+                        await atv.audio.volume_down()
+                    return {"volume": None}
+            return await self._with_retry(device_id, _fn)
+
         if cmd == "get_metadata":
             async def _fn(atv):
                 p = await atv.metadata.playing()

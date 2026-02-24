@@ -28,6 +28,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._statusLabels = new Map();
         this._powerStates = new Map();
         this._deviceMenuItems = new Map();
+        this._devices = new Map();
         // Pre-populate selected device from config so we can preconnect on first open
         this._selectedId = null;
         try {
@@ -41,7 +42,6 @@ class AppleTVIndicator extends PanelMenu.Button {
 
         this._pollTimer = null;
         this._lastTitle = null;
-        this._appsLoaded = false;
 
         // Persistent daemon state
         this._daemon = null;
@@ -70,17 +70,6 @@ class AppleTVIndicator extends PanelMenu.Button {
         this.deviceSection = new PopupMenu.PopupMenuSection();
         this.menu.addMenuItem(this.deviceSection);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        // Apps submenu
-        this._appsSubmenu = new PopupMenu.PopupSubMenuMenuItem(_('Apps'));
-        this.menu.addMenuItem(this._appsSubmenu);
-
-        this._appsSubmenu.menu.connect('open-state-changed', (_menu, isOpen) => {
-            if (isOpen && !this._appsLoaded) {
-                this._refreshApps();
-            }
-        });
-
 
         // --- Controls ---
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -140,6 +129,11 @@ class AppleTVIndicator extends PanelMenu.Button {
     _remoteControls() {
         const remoteWidth = 239;
         const remoteHeight = 893;
+        const baseWidth = 225;
+        const baseHeight = 877;
+        const scaleX = remoteWidth / baseWidth;
+        const scaleY = remoteHeight / baseHeight;
+        const yOffset = 7;
         const remote = new St.Widget({
             style_class: 'appletv-remote-graphic',
             layout_manager: new Clutter.FixedLayout(),
@@ -158,35 +152,48 @@ class AppleTVIndicator extends PanelMenu.Button {
                 can_focus: true,
             });
             remote.add_child(btn);
-            btn.set_position(x, y);
-            btn.set_size(w, h);
-            if (command) {
-                btn.connect('button-press-event', () => this._send(command, this._selectedId));
+            btn.set_position(Math.round(x * scaleX), Math.round((y + yOffset) * scaleY));
+            btn.set_size(Math.round(w * scaleX), Math.round(h * scaleY));
+            if (typeof command === 'function') {
+                btn.connect('button-press-event', () => {
+                    command();
+                    return Clutter.EVENT_STOP;
+                });
+            } else if (command) {
+                btn.connect('button-press-event', () => {
+                    this._send(command, this._selectedId);
+                    return Clutter.EVENT_STOP;
+                });
             }
         };
 
-        // NOTE: Hit regions are approximate and may need adjustment per image.
+        const light = new St.Widget({
+            style_class: 'appletv-remote-light',
+            reactive: false,
+        });
+        remote.add_child(light);
+        light.set_position(Math.round(104 * scaleX), Math.round((45 + yOffset) * scaleY));
+        light.set_size(Math.round(16 * scaleX), Math.round(7 * scaleY));
+        this._remoteLight = light;
+        this._setRemoteReady(false);
+
+        // NOTE: Hit regions are derived from atv_remote_hitboxes.png.
         const regions = [
-            { command: 'menu', x: 24, y: 60, w: 60, h: 36 },
-            { command: 'top_menu', x: 90, y: 60, w: 60, h: 36 },
-            { command: 'home', x: 156, y: 60, w: 60, h: 36 },
+            { command: () => this._togglePower(), x: 133, y: 0, w: 92, h: 92 },
 
-            { command: 'up', x: 90, y: 165, w: 60, h: 45 },
-            { command: 'left', x: 30, y: 220, w: 60, h: 60 },
-            { command: 'select', x: 90, y: 215, w: 60, h: 60, className: 'appletv-hit-circle' },
-            { command: 'right', x: 150, y: 220, w: 60, h: 60 },
-            { command: 'down', x: 90, y: 285, w: 60, h: 45 },
+            { command: 'up', x: 42, y: 78, w: 143, h: 64 },
+            { command: 'left', x: 5, y: 115, w: 65, h: 144 },
+            { command: 'select', x: 56, y: 130, w: 114, h: 111, className: 'appletv-hit-circle' },
+            { command: 'right', x: 157, y: 114, w: 67, h: 144 },
+            { command: 'down', x: 43, y: 230, w: 144, h: 66 },
 
-            { command: 'prev_track', x: 18, y: 420, w: 60, h: 40 },
-            { command: 'play_pause', x: 90, y: 420, w: 60, h: 40 },
-            { command: 'next_track', x: 162, y: 420, w: 60, h: 40 },
+            { command: 'menu', x: 21, y: 291, w: 85, h: 85 },
+            { command: 'home', x: 118, y: 293, w: 83, h: 83 },
 
-            { command: 'skip_prev', x: 18, y: 480, w: 60, h: 40 },
-            { command: 'stop', x: 90, y: 480, w: 60, h: 40 },
-            { command: 'skip_next', x: 162, y: 480, w: 60, h: 40 },
-
-            { command: 'volume_down', x: 90, y: 640, w: 60, h: 50 },
-            { command: 'volume_up', x: 90, y: 700, w: 60, h: 50 },
+            { command: 'play_pause', x: 22, y: 387, w: 83, h: 83 },
+            { command: 'volume_up', x: 119, y: 386, w: 83, h: 83 },
+            { command: () => this._openAppSelector(), x: 21, y: 482, w: 83, h: 83 },
+            { command: 'volume_down', x: 120, y: 483, w: 83, h: 83 },
         ];
 
         for (const region of regions) {
@@ -199,6 +206,17 @@ class AppleTVIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(item);
     }
 
+    _setRemoteReady(isReady) {
+        if (!this._remoteLight) return;
+        this._remoteLight.opacity = isReady ? 255 : 0;
+    }
+
+    _togglePower() {
+        if (!this._selectedId) return;
+        const state = this._powerStates.get(this._selectedId);
+        const command = state === 'on' ? 'power_off' : 'power_on';
+        this._send(command, this._selectedId).catch(() => {});
+    }
 
     _button(command, icon_name, style_class) {
         const btn = new St.Button({
@@ -218,6 +236,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._statusLabels.clear();
         this._powerStates.clear();
         this._deviceMenuItems.clear();
+        this._devices.clear();
 
         try {
             const [stdout] = await this._send('list_devices');
@@ -267,6 +286,7 @@ class AppleTVIndicator extends PanelMenu.Button {
                 item.add_child(powerBtn);
                 this._powerButtons.set(device.id, powerBtn);
                 this._deviceMenuItems.set(device.id, item);
+                this._devices.set(device.id, device);
 
                 this.deviceSection.addMenuItem(item);
 
@@ -286,10 +306,40 @@ class AppleTVIndicator extends PanelMenu.Button {
         }
     }
     
-    _openAppDialog() {
-        const dialog = new AppDialog(this._extension, this._atvDevice, () => {
-             this._refreshFavoriteApps();
-        });
+    async _openAppSelector() {
+        log('[AppleTV] App selector button pressed');
+        if (!this._selectedId) {
+            log('[AppleTV] No device selected');
+            return;
+        }
+        const device = this._devices.get(this._selectedId);
+        if (!device) {
+            log('[AppleTV] Device not found in map, sending home');
+            this._send('home', this._selectedId).catch(() => {});
+            return;
+        }
+
+        try {
+            log('[AppleTV] Requesting app list...');
+            const [stdout] = await this._send('list_apps', this._selectedId);
+            const res = JSON.parse(stdout);
+            const apps = res.apps || [];
+            log(`[AppleTV] Got ${apps.length} apps`);
+            if (apps.length === 0) {
+                log('[AppleTV] No apps, sending home');
+                this._send('home', this._selectedId).catch(() => {});
+                return;
+            }
+            log('[AppleTV] Opening app dialog');
+            this._openAppDialog(device);
+        } catch (e) {
+            log(`[AppleTV] Error getting apps: ${e}, sending home`);
+            this._send('home', this._selectedId).catch(() => {});
+        }
+    }
+
+    _openAppDialog(device) {
+        const dialog = new AppDialog(this._extension, device, () => {});
         dialog.open();
     }
 
@@ -312,6 +362,9 @@ class AppleTVIndicator extends PanelMenu.Button {
                 // on or off — device is reachable, no status message needed
                 label.text = '';
                 label.visible = false;
+            }
+            if (deviceId === this._selectedId) {
+                this._setRemoteReady(state === 'on' || state === 'off');
             }
         };
 
@@ -344,40 +397,11 @@ class AppleTVIndicator extends PanelMenu.Button {
 
         this._stopPolling();
         this._startPolling();
-        this._resetAppsPlaceholder();
+
+        const state = this._powerStates.get(deviceId);
+        this._setRemoteReady(state === 'on' || state === 'off');
     }
 
-    _resetAppsPlaceholder() {
-        this._appsLoaded = false;
-        this._appsSubmenu.menu.removeAll();
-        const placeholder = new PopupMenu.PopupMenuItem(_('Loading...'));
-        this._appsSubmenu.menu.addMenuItem(placeholder);
-    }
-    
-    async _refreshApps() {
-        if (!this._selectedId) return;
-        this._appsSubmenu.menu.removeAll();
-        this._appsLoaded = true;
-
-        try {
-            const [stdout] = await this._send('list_apps', this._selectedId);
-            const res = JSON.parse(stdout);
-            const apps = res.apps || [];
-
-            if (apps.length === 0) {
-                this._appsSubmenu.menu.addMenuItem(new PopupMenu.PopupMenuItem(_('No apps found.')));
-            } else {
-                for (const app of apps) {
-                    const item = new PopupMenu.PopupMenuItem(app.name);
-                    item.connect('activate', () => this._send('launch_app', this._selectedId, app.id));
-                    this._appsSubmenu.menu.addMenuItem(item);
-                }
-            }
-        } catch (e) {
-            this._appsSubmenu.menu.addMenuItem(new PopupMenu.PopupMenuItem(_('Error loading apps.')));
-            log(e);
-        }
-    }
 
     // --- Polling for metadata ---
     _startPolling() {
@@ -615,10 +639,10 @@ export default class AppleTVRemoteExtension extends Extension {
 
     async getApps(deviceId) {
         const [stdout] = await this._indicator._send('list_apps', deviceId);
-        const apps = JSON.parse(stdout);
-        if (apps.error) {
-            throw new Error(apps.error);
+        const res = JSON.parse(stdout);
+        if (res.error) {
+            throw new Error(res.error);
         }
-        return apps;
+        return res.apps || [];
     }
 }
