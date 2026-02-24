@@ -40,74 +40,31 @@
     background-color: rgba(255, 255, 255, 0.30);
 }
 
-/* D-pad layout */
-.appletv-nav-grid {
-    spacing: 0px;
-    padding: 6px;
-    background-color: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 28px;
+/* Remote graphic + hit regions */
+.appletv-remote-graphic {
+    min-width: 239px;
+    min-height: 893px;
 }
 
-.appletv-nav-row {
-    spacing: 0px;
-    margin: 0px;
-}
-
-/* Arrow / select buttons - base style */
-.appletv-nav-btn {
-    padding: 8px;
-    min-width: 44px;
-    min-height: 44px;
-    font-size: 16px;
-    background-color: rgba(255, 255, 255, 0.08);
-    border: 2px solid rgba(255, 255, 255, 0.12);
+.appletv-hit-btn {
+    background-color: rgba(255, 255, 255, 0.0);
+    border: 1px solid rgba(255, 255, 255, 0.0);
     border-radius: 8px;
+    transition-duration: 120ms;
 }
 
-.appletv-nav-btn:hover {
-    background-color: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.22);
+.appletv-hit-btn:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
 }
 
-.appletv-nav-btn:active {
-    background-color: rgba(255, 255, 255, 0.30);
-    border-color: rgba(255, 255, 255, 0.34);
+.appletv-hit-btn:active {
+    background-color: rgba(255, 255, 255, 0.24);
+    border-color: rgba(255, 255, 255, 0.45);
 }
 
-/* Center select button - larger and circular */
-.appletv-nav-center {
-    border-radius: 50%;
-    min-width: 56px;
-    min-height: 56px;
-    padding: 10px;
-    background-color: rgba(100, 180, 255, 0.14);
-    border-color: rgba(100, 180, 255, 0.22);
-}
-
-.appletv-nav-center:hover {
-    background-color: rgba(100, 180, 255, 0.22);
-    border-color: rgba(100, 180, 255, 0.32);
-}
-
-.appletv-nav-center:active {
-    background-color: rgba(100, 180, 255, 0.36);
-    border-color: rgba(100, 180, 255, 0.44);
-}
-
-/* Side buttons - fully rounded */
-.appletv-nav-side {
-    border-radius: 22px;
-}
-
-/* Up button - rounded top */
-.appletv-nav-up {
-    border-radius: 22px 22px 8px 8px;
-}
-
-/* Down button - rounded bottom */
-.appletv-nav-down {
-    border-radius: 8px 8px 22px 22px;
+.appletv-hit-circle {
+    border-radius: 999px;
 }
 
 /* ── Power button (shown next to each device name) ───────────────────────── */

@@ -89,6 +89,10 @@ cp "${EXTENSION_SRC}/stylesheet.css" "${EXTENSION_DEST}/stylesheet.css"
 cp "${EXTENSION_SRC}/appDialog.js"   "${EXTENSION_DEST}/appDialog.js"
 cp "${EXTENSION_SRC}/appChooser.js"  "${EXTENSION_DEST}/appChooser.js"
 
+if [ -f "${EXTENSION_SRC}/atv_remote.png" ]; then
+    cp "${EXTENSION_SRC}/atv_remote.png" "${EXTENSION_DEST}/atv_remote.png"
+fi
+
 # Also copy the icons, if the directory exists
 if [ -d "${EXTENSION_SRC}/icons" ]; then
     cp -r "${EXTENSION_SRC}/icons" "${EXTENSION_DEST}/"

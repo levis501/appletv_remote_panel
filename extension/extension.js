@@ -85,25 +85,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         // --- Controls ---
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-        // Menu / Home
-        this._centeredRow(row => {
-            row.add_child(this._button('menu', 'view-more-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('top_menu', 'go-top-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('home', 'go-home-symbolic', 'appletv-icon-btn'));
-        });
-
-        // Navigation
-        this._navItem();
-
-        // Playback
-        this._centeredRow(row => {
-            row.add_child(this._button('prev_track', 'media-skip-backward-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('skip_prev', 'media-seek-backward-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('play_pause', 'media-playback-start-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('skip_next', 'media-seek-forward-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('next_track', 'media-skip-forward-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('stop', 'media-playback-stop-symbolic', 'appletv-icon-btn'));
-        });
+        this._remoteControls();
 
         this._positionLabel = new St.Label({ text: '', style_class: 'appletv-position-label' });
         const positionBin = new St.Bin({ child: this._positionLabel, x_align: Clutter.ActorAlign.CENTER });
@@ -111,12 +93,6 @@ class AppleTVIndicator extends PanelMenu.Button {
         positionItem.add_child(positionBin);
         this.menu.addMenuItem(positionItem);
 
-
-        // Volume
-        this._centeredRow(row => {
-            row.add_child(this._button('volume_down', 'audio-volume-low-symbolic', 'appletv-icon-btn'));
-            row.add_child(this._button('volume_up', 'audio-volume-high-symbolic', 'appletv-icon-btn'));
-        });
 
         // --- Metadata ---
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -161,40 +137,63 @@ class AppleTVIndicator extends PanelMenu.Button {
 
     }
 
-    _centeredRow(buildFn) {
-        const row = new St.BoxLayout({ style_class: 'appletv-control-row' });
-        buildFn(row);
-        const bin = new St.Bin({ child: row, x_align: Clutter.ActorAlign.CENTER });
-        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        item.add_child(bin);
-        this.menu.addMenuItem(item);
-    }
+    _remoteControls() {
+        const remoteWidth = 239;
+        const remoteHeight = 893;
+        const remote = new St.Widget({
+            style_class: 'appletv-remote-graphic',
+            layout_manager: new Clutter.FixedLayout(),
+            reactive: false,
+        });
+        remote.set_size(remoteWidth, remoteHeight);
+        remote.set_style(
+            `background-image: url("${this._extension.path}/atv_remote.png"); ` +
+            'background-size: 100% 100%; background-repeat: no-repeat;'
+        );
 
-    _navItem() {
-        const grid = new St.BoxLayout({ vertical: true, style_class: 'appletv-nav-grid' });
+        log(`AppleTV-Remote: loading remote graphic ${this._extension.path}/atv_remote.png`);
+        const addHit = (command, x, y, w, h, className = '') => {
+            const btn = new St.Button({
+                style_class: `appletv-hit-btn${className ? ` ${className}` : ''}`,
+                can_focus: true,
+            });
+            remote.add_child(btn);
+            btn.set_position(x, y);
+            btn.set_size(w, h);
+            if (command) {
+                btn.connect('button-press-event', () => this._send(command, this._selectedId));
+            }
+        };
 
-        // Top row: Up button
-        const row1 = new St.BoxLayout({ style_class: 'appletv-nav-row' });
-        row1.add_child(new St.Widget({ style: 'min-width: 44px;' }));
-        row1.add_child(this._button('up', 'pan-up-symbolic', 'appletv-nav-btn appletv-nav-up'));
-        row1.add_child(new St.Widget({ style: 'min-width: 44px;' }));
-        grid.add_child(row1);
+        // NOTE: Hit regions are approximate and may need adjustment per image.
+        const regions = [
+            { command: 'menu', x: 24, y: 60, w: 60, h: 36 },
+            { command: 'top_menu', x: 90, y: 60, w: 60, h: 36 },
+            { command: 'home', x: 156, y: 60, w: 60, h: 36 },
 
-        // Middle row: Left, Select, Right
-        const row2 = new St.BoxLayout({ style_class: 'appletv-nav-row' });
-        row2.add_child(this._button('left', 'pan-start-symbolic', 'appletv-nav-btn appletv-nav-side'));
-        row2.add_child(this._button('select', 'media-record-symbolic', 'appletv-nav-btn appletv-nav-center'));
-        row2.add_child(this._button('right', 'pan-end-symbolic', 'appletv-nav-btn appletv-nav-side'));
-        grid.add_child(row2);
+            { command: 'up', x: 90, y: 165, w: 60, h: 45 },
+            { command: 'left', x: 30, y: 220, w: 60, h: 60 },
+            { command: 'select', x: 90, y: 215, w: 60, h: 60, className: 'appletv-hit-circle' },
+            { command: 'right', x: 150, y: 220, w: 60, h: 60 },
+            { command: 'down', x: 90, y: 285, w: 60, h: 45 },
 
-        // Bottom row: Down button
-        const row3 = new St.BoxLayout({ style_class: 'appletv-nav-row' });
-        row3.add_child(new St.Widget({ style: 'min-width: 44px;' }));
-        row3.add_child(this._button('down', 'pan-down-symbolic', 'appletv-nav-btn appletv-nav-down'));
-        row3.add_child(new St.Widget({ style: 'min-width: 44px;' }));
-        grid.add_child(row3);
+            { command: 'prev_track', x: 18, y: 420, w: 60, h: 40 },
+            { command: 'play_pause', x: 90, y: 420, w: 60, h: 40 },
+            { command: 'next_track', x: 162, y: 420, w: 60, h: 40 },
 
-        const bin = new St.Bin({ child: grid, x_align: Clutter.ActorAlign.CENTER });
+            { command: 'skip_prev', x: 18, y: 480, w: 60, h: 40 },
+            { command: 'stop', x: 90, y: 480, w: 60, h: 40 },
+            { command: 'skip_next', x: 162, y: 480, w: 60, h: 40 },
+
+            { command: 'volume_down', x: 90, y: 640, w: 60, h: 50 },
+            { command: 'volume_up', x: 90, y: 700, w: 60, h: 50 },
+        ];
+
+        for (const region of regions) {
+            addHit(region.command, region.x, region.y, region.w, region.h, region.className || '');
+        }
+
+        const bin = new St.Bin({ child: remote, x_align: Clutter.ActorAlign.CENTER });
         const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         item.add_child(bin);
         this.menu.addMenuItem(item);
@@ -584,11 +583,13 @@ class AppleTVIndicator extends PanelMenu.Button {
 
 export default class AppleTVRemoteExtension extends Extension {
     enable() {
+        log('AppleTV-Remote: enable()');
         this._indicator = new AppleTVIndicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 
     disable() {
+        log('AppleTV-Remote: disable()');
         this._indicator?.destroy();
         this._indicator = null;
     }
