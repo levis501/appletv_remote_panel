@@ -32,6 +32,7 @@ ENV/
 # IDE and Editors
 .vscode/
 .idea/
+.claude/*.local.*
 *.swp
 *.swo
 *~
