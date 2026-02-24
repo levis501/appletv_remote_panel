@@ -38,6 +38,7 @@ class AppleTVIndicator extends PanelMenu.Button {
 
         this._powerButtons = new Map();
         this._powerIndicators = new Map();
+        this._deviceMenuItems = new Map();
         this._selectedId = null;
         this._pollTimer = null;
         this._lastTitle = null;
@@ -203,15 +204,21 @@ class AppleTVIndicator extends PanelMenu.Button {
         this.deviceSection.removeAll();
         this._powerButtons.clear();
         this._powerIndicators.clear();
+        this._deviceMenuItems.clear();
 
         try {
-            const [stdout] = await this._send('scan');
+            const [stdout] = await this._send('list_devices');
             const parsed = JSON.parse(stdout);
             const devices = parsed.devices || [];
 
             if (devices.length === 0) {
-                this.deviceSection.addMenuItem(new PopupMenu.PopupMenuItem(_('No devices found.')));
+                this.deviceSection.addMenuItem(new PopupMenu.PopupMenuItem(_('No devices configured. Run atv_setup.py to add devices.')));
                 return;
+            }
+
+            // Use saved selection from config if we don't have one yet
+            if (!this._selectedId && parsed.selected) {
+                this._selectedId = parsed.selected;
             }
 
             for (const device of devices) {
@@ -222,40 +229,45 @@ class AppleTVIndicator extends PanelMenu.Button {
                     item.setOrnament(PopupMenu.Ornament.DOT);
                 }
 
-                // Power Indicator
+                // Power indicator starts in "pending" state until async check resolves
                 const powerIndicator = new St.Icon({
                     icon_name: 'media-record-symbolic',
-                    style_class: 'appletv-power-indicator-off',
+                    style_class: 'appletv-power-indicator-pending',
                 });
                 item.add_child(powerIndicator);
                 this._powerIndicators.set(device.id, powerIndicator);
 
                 // Power button
                 const powerBtn = this._button(null, 'system-shutdown-symbolic', 'appletv-power-btn');
-                powerBtn.connect('button-press-event', async (actor, event) => {
-                     event.stop();
-                     const wasOn = powerIndicator.has_style_class_name('appletv-power-indicator-on');
-                     const command = wasOn ? 'power_off' : 'power_on';
-                     this._updatePowerStatus(device.id, !wasOn); // Optimistic update
-
-                     try {
+                powerBtn.connect('button-press-event', async (_actor, event) => {
+                    event.stop();
+                    const wasOn = powerIndicator.has_style_class_name('appletv-power-indicator-on');
+                    const command = wasOn ? 'power_off' : 'power_on';
+                    this._updatePowerStatus(device.id, !wasOn); // Optimistic update
+                    try {
                         await this._send(command, device.id);
-                     } catch(e) {
+                    } catch(e) {
                         this._updatePowerStatus(device.id, wasOn); // Revert on failure
-                     }
+                    }
                 });
                 item.add_child(powerBtn);
                 this._powerButtons.set(device.id, powerBtn);
-                this._updatePowerStatus(device.id);
+                this._deviceMenuItems.set(device.id, item);
 
                 this.deviceSection.addMenuItem(item);
+
+                // Kick off async power state check — updates indicator when done
+                this._updatePowerStatus(device.id);
             }
 
+            // Auto-select first device if nothing is selected
             if (!this._selectedId && devices.length > 0) {
-                this._selectDevice(devices[0].id);
+                this._selectedId = devices[0].id;
+                this._deviceMenuItems.get(devices[0].id)?.setOrnament(PopupMenu.Ornament.DOT);
+                this._startPolling();
             }
         } catch (e) {
-            this.deviceSection.addMenuItem(new PopupMenu.PopupMenuItem(_('Error scanning devices.')));
+            this.deviceSection.addMenuItem(new PopupMenu.PopupMenuItem(_('Error loading devices.')));
             log(e);
         }
     }
@@ -271,38 +283,45 @@ class AppleTVIndicator extends PanelMenu.Button {
     async _updatePowerStatus(deviceId, forceState) {
         if (!this._powerIndicators.has(deviceId)) return;
         const indicator = this._powerIndicators.get(deviceId);
-        
-        const updateUI = (isOn) => {
-             if (isOn) {
-                indicator.add_style_class_name('appletv-power-indicator-on');
-                indicator.remove_style_class_name('appletv-power-indicator-off');
-            } else {
-                indicator.add_style_class_name('appletv-power-indicator-off');
-                indicator.remove_style_class_name('appletv-power-indicator-on');
-            }
+
+        const setClass = (cls) => {
+            indicator.remove_style_class_name('appletv-power-indicator-on');
+            indicator.remove_style_class_name('appletv-power-indicator-off');
+            indicator.remove_style_class_name('appletv-power-indicator-pending');
+            indicator.remove_style_class_name('appletv-power-indicator-unavailable');
+            indicator.add_style_class_name(cls);
         };
 
         if (typeof forceState === 'boolean') {
-            updateUI(forceState);
+            setClass(forceState ? 'appletv-power-indicator-on' : 'appletv-power-indicator-off');
             return;
         }
 
         try {
             const [stdout] = await this._send('power_state', deviceId);
             const res = JSON.parse(stdout);
-            updateUI(res.result === 'on');
+            setClass(res.on ? 'appletv-power-indicator-on' : 'appletv-power-indicator-off');
         } catch (e) {
-            updateUI(false);
+            setClass('appletv-power-indicator-unavailable');
         }
     }
 
 
     _selectDevice(deviceId) {
+        const prevId = this._selectedId;
         this._selectedId = deviceId;
+
+        // Update ornaments in-place without rebuilding the list
+        if (prevId && this._deviceMenuItems.has(prevId)) {
+            this._deviceMenuItems.get(prevId).setOrnament(PopupMenu.Ornament.NONE);
+        }
+        if (this._deviceMenuItems.has(deviceId)) {
+            this._deviceMenuItems.get(deviceId).setOrnament(PopupMenu.Ornament.DOT);
+        }
+
         this._stopPolling();
         this._startPolling();
         this._resetAppsPlaceholder();
-        this._refreshDeviceList();
     }
 
     _resetAppsPlaceholder() {

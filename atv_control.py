@@ -27,6 +27,16 @@ import sys
 CONFIG_PATH = os.path.expanduser("~/.config/appletv-remote/devices.json")
 
 
+def load_config():
+    if not os.path.exists(CONFIG_PATH):
+        return {"devices": [], "selected": None}
+    try:
+        with open(CONFIG_PATH) as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        die(f"Could not parse config file: {CONFIG_PATH}")
+
+
 def save_config(cfg):
     """Atomically write the config file."""
     with open(CONFIG_PATH + ".tmp", "w") as f:
@@ -316,6 +326,17 @@ def main():
 
     if command == "scan":
         asyncio.run(cmd_scan())
+        return
+
+    if command == "list_devices":
+        cfg = load_config()
+        out({
+            "devices": [
+                {"name": d["name"], "id": d["id"], "address": d.get("address", "")}
+                for d in cfg.get("devices", [])
+            ],
+            "selected": cfg.get("selected"),
+        })
         return
 
     if len(args) < 2:

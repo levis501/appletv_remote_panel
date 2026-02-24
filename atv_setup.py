@@ -113,6 +113,7 @@ async def setup():
             sys.exit(1)
 
     cfg = load_config()
+    new_devices = []
 
     for atv_config in chosen:
         print(f"\n{'='*55}")
@@ -120,44 +121,50 @@ async def setup():
         print(f"  ID:          {atv_config.identifier}")
         print("="*55)
 
-        # Find existing entry or create new one
+        # Preserve any existing extra config (e.g. per-device settings)
         existing = next(
             (d for d in cfg["devices"] if d["id"] == atv_config.identifier), None
         )
-        entry = existing or {
+        entry = {
             "name":    atv_config.name,
             "id":      atv_config.identifier,
             "address": str(atv_config.address),
         }
+        if existing and "config" in existing:
+            entry["config"] = existing["config"]
 
-        # Companion is optional but recommended for tvOS 15+
-        # try pairing it first, since most of our devices are on tvOS 15+
-        ans = input("\nStep 1/2: Pair Companion protocol? (recommended for tvOS 15+) [Y/n]: ")
+        # Step 1: MRP — required for all remote control and metadata
+        print("\nStep 1/2: MRP pairing (required for remote control and metadata)")
+        mrp_creds = await pair_protocol(atv_config, "mrp")
+        if mrp_creds:
+            entry["credentials_mrp"] = mrp_creds
+        else:
+            print("  WARNING: MRP pairing failed.")
+            print("  All remote control commands and metadata polling require MRP.")
+            print("  Possible causes:")
+            print("    - Wrong PIN entered")
+            print("    - Apple TV rejected the pairing request (try re-running setup)")
+            print("    - The device may have timed out waiting for PIN entry")
+            print("    - Very old tvOS versions may not support MRP")
+            print("  This device will not function correctly without MRP credentials.")
+
+        # Step 2: Companion — optional but recommended for tvOS 15+
+        ans = input("\nStep 2/2: Pair Companion protocol? (recommended for tvOS 15+) [Y/n]: ")
         if ans.strip().lower() in ("y", "yes", ""):
             companion_creds = await pair_protocol(atv_config, "companion")
             if companion_creds:
                 entry["credentials_companion"] = companion_creds
 
-        # Always pair MRP — required for remote control and metadata
-        print("\nStep 2/2: MRP pairing (required for all remote control)")
-        mrp_creds = await pair_protocol(atv_config, "mrp")
-        if mrp_creds:
-            entry["credentials_mrp"] = mrp_creds
-        else:
-            print("  WARNING: MRP pairing failed. Remote control will not work.")
-
-        # Update or append
-        if existing:
-            idx = cfg["devices"].index(existing)
-            cfg["devices"][idx] = entry
-        else:
-            cfg["devices"].append(entry)
-
-        # Auto-select first device or if only one device
-        if cfg["selected"] is None or len(cfg["devices"]) == 1:
-            cfg["selected"] = entry["id"]
-
+        new_devices.append(entry)
         print(f"\n  '{atv_config.name}' configured.")
+
+    # Replace device list entirely with devices from this setup run
+    cfg["devices"] = new_devices
+
+    # Set selected to first device if current selection is gone or unset
+    known_ids = {d["id"] for d in new_devices}
+    if cfg.get("selected") not in known_ids:
+        cfg["selected"] = new_devices[0]["id"] if new_devices else None
 
     save_config(cfg)
 

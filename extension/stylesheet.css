@@ -95,6 +95,16 @@
     color: rgba(255, 255, 255, 0.2);
 }
 
+/* Amber dot shown while waiting for connection state */
+.appletv-power-indicator-pending {
+    color: rgba(255, 180, 0, 0.6);
+}
+
+/* Dim red dot shown when device is unreachable */
+.appletv-power-indicator-unavailable {
+    color: rgba(255, 80, 80, 0.4);
+}
+
 .appletv-app-btn {
     padding: 6px;
     background-color: rgba(255, 255, 255, 0.08);
