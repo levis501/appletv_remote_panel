@@ -356,6 +356,7 @@ class AppleTVIndicator extends PanelMenu.Button {
     _openDeviceDialog() {
         const dialog = new DeviceDialog(this, () => {
             this._loadDevices();
+            this.menu.open();
         });
         dialog.open();
     }
@@ -482,6 +483,7 @@ class AppleTVIndicator extends PanelMenu.Button {
     _openAppDialog(device) {
         const dialog = new AppDialog(this._extension, device, () => {
             this._refreshAppButtons();
+            this.menu.open();
         });
         dialog.open();
     }
