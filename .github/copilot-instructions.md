@@ -74,6 +74,7 @@ Keep AI instruction files current after every significant change:
 
 - Changes in development workspace must be installed via `install.sh` to reflect in the running extension.
 - Keep backups of `~/.config/appletv-remote/devices.json` when testing pairing.
+- `apps.json` stores favorites plus the last seen full app list; the icon fetcher prioritizes favorites then processes the rest alphabetically.
 - Respect GNOME Shell formatting and use St widgets when implementing new UI elements.
 
 ---

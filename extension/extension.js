@@ -424,7 +424,16 @@ class AppleTVIndicator extends PanelMenu.Button {
             const apps = res.apps || [];
             if (apps.length === 0) return;
 
-            const favorites = this._extension.getFavoriteAppObjects();
+            const config = this._extension._readAppsConfig();
+            const favorites = (config.favorites.length > 0 || config.hasFile)
+                ? [...config.favorites]
+                : [...DEFAULT_FAVORITE_APPS];
+            
+            // Save full app list to enable icon downloading for all apps
+            this._extension._saveAppsConfig(favorites, apps);
+            this._extension._startColorFetcher();
+
+            // Validate favorites: remove any that no longer exist on device
             const appIds = new Set(apps.map(a => a.id));
             let changed = false;
             for (const fav of favorites) {
@@ -849,20 +858,44 @@ export default class AppleTVRemoteExtension extends Extension {
         return `${GLib.get_home_dir()}/.config/appletv-remote/apps.json`;
     }
 
+    _readAppsConfig() {
+        try {
+            const [ok, bytes] = GLib.file_get_contents(this._appsConfigPath());
+            if (ok) {
+                const cfg = JSON.parse(new TextDecoder().decode(bytes));
+                const favorites = Array.isArray(cfg.favorites) ? cfg.favorites : [];
+                const apps = Array.isArray(cfg.apps) ? cfg.apps : [];
+                return { favorites, apps, hasFile: true };
+            }
+        } catch (_e) {}
+        return { favorites: [], apps: [], hasFile: false };
+    }
+
+    _saveAppsConfig(favorites, apps) {
+        try {
+            const file = Gio.File.new_for_path(this._appsConfigPath());
+            file.replace_contents(
+                new TextEncoder().encode(JSON.stringify({ favorites, apps }, null, 2)),
+                null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null
+            );
+        } catch (e) {
+            log(`AppleTV-Remote: failed to save apps config: ${e}`);
+        }
+    }
+
     /**
      * Returns [{id, name}, ...] for the user's favourite apps.
      * Falls back to DEFAULT_FAVORITE_APPS when no config file exists yet.
      */
     getFavoriteAppObjects() {
-        try {
-            const [ok, bytes] = GLib.file_get_contents(this._appsConfigPath());
-            if (ok) {
-                const cfg = JSON.parse(new TextDecoder().decode(bytes));
-                if (Array.isArray(cfg.favorites))
-                    return cfg.favorites;
-            }
-        } catch (_e) {}
-        return [...DEFAULT_FAVORITE_APPS];
+        const { favorites, hasFile } = this._readAppsConfig();
+        if (favorites.length > 0) {
+            return favorites;
+        }
+        if (!hasFile) {
+            return [...DEFAULT_FAVORITE_APPS];
+        }
+        return favorites;
     }
 
     /** Returns an array of favourite app IDs (for AppChooser checkbox state). */
@@ -875,27 +908,27 @@ export default class AppleTVRemoteExtension extends Extension {
      * @param {string}      _deviceId  Unused — favourites are global across devices.
      * @param {{id, name}}  app        App object from the device's app list.
      * @param {boolean}     isFavorite Whether to add (true) or remove (false).
+     * @returns {boolean}  True if successful, false if limit reached.
      */
     setAppFavorite(_deviceId, app, isFavorite) {
-        const favorites = this.getFavoriteAppObjects();
+        const config = this._readAppsConfig();
+        const favorites = (config.favorites.length > 0 || config.hasFile)
+            ? [...config.favorites]
+            : [...DEFAULT_FAVORITE_APPS];
         const idx = favorites.findIndex(a => a.id === app.id);
         if (isFavorite && idx === -1) {
+            if (favorites.length >= 15) {
+                Main.notify('Apple TV Remote', 'Maximum of 15 favorite apps reached');
+                return false;
+            }
             favorites.push({ id: app.id, name: app.name });
         } else if (!isFavorite && idx !== -1) {
             favorites.splice(idx, 1);
         } else {
-            return; // no change needed
+            return true; // no change needed
         }
-
-        try {
-            const file = Gio.File.new_for_path(this._appsConfigPath());
-            file.replace_contents(
-                new TextEncoder().encode(JSON.stringify({ favorites }, null, 2)),
-                null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null
-            );
-        } catch (e) {
-            log(`AppleTV-Remote: failed to save apps config: ${e}`);
-        }
+        this._saveAppsConfig(favorites, config.apps || []);
+        return true;
     }
 
     // ── App icon resolution ────────────────────────────────────────────────
@@ -934,6 +967,14 @@ export default class AppleTVRemoteExtension extends Extension {
         if (res.error) {
             throw new Error(res.error);
         }
-        return res.apps || [];
+        const apps = res.apps || [];
+        const config = this._readAppsConfig();
+        const favorites = (config.favorites.length > 0 || config.hasFile)
+            ? config.favorites
+            : [...DEFAULT_FAVORITE_APPS];
+        this._saveAppsConfig(favorites, apps);
+        // Trigger the fetcher to download icons for newly discovered apps
+        this._startColorFetcher();
+        return apps;
     }
 }

@@ -29,6 +29,7 @@ The extension spawns `atv_daemon.py` once (on first `_send()` call) and keeps it
 - `extension/metadata.json` — GNOME extension metadata
 - `~/.config/appletv-remote/devices.json` — device credentials and config (not in repo)
 - `~/.config/appletv-remote/app_colors.json` — cached app button colours (written by `atv_color_fetcher.py`)
+- `~/.config/appletv-remote/apps.json` — favorites plus last seen full app list (used to prioritize icon fetching)
 
 ## Development Workflow
 

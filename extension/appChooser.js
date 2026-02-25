@@ -147,9 +147,12 @@ class AppTile extends St.Button {
     }
 
     _toggle() {
-        this._selected = !this._selected;
-        this._extension.setAppFavorite(this._atvDevice.id, this._app, this._selected);
-        this._updateStyle();
+        const newState = !this._selected;
+        const success = this._extension.setAppFavorite(this._atvDevice.id, this._app, newState);
+        if (success) {
+            this._selected = newState;
+            this._updateStyle();
+        }
     }
 
     _updateStyle() {

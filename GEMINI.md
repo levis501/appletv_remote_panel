@@ -58,6 +58,10 @@ Keep AI instruction files current after every significant change:
 - **After adding or removing files or directories**: Update the relevant sections.
 - **After failing or passing tests, or identifying new constraints**: Record them so future sessions start with correct context.
 
+## Notes
+
+- `apps.json` stores favorites plus the last seen full app list (written when the app list is fetched). The icon fetcher prioritizes favorites, then processes the remaining apps in alphabetical order.
+
 ## Feature Update Guidelines
 
 When implementing new features, consider the boundary between the JS frontend and the Python backend.

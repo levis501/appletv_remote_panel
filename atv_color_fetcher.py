@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """atv_color_fetcher.py — Fetch dominant colours from app icons via the iTunes API.
 
-For each favourite app in ~/.config/appletv-remote/apps.json this script:
+For each favourite app in ~/.config/appletv-remote/apps.json, and then all other
+apps listed there (in alphabetical order), this script:
   1. Looks up the app icon URL from the iTunes Search API using the bundle ID.
   2. Falls back to an iTunes name search for third-party apps not found by ID.
   3. Downloads the icon image.
@@ -37,14 +38,20 @@ def _log(msg):
 
 # ── Config I/O ────────────────────────────────────────────────────────────────
 
-def load_apps():
+def load_apps_config():
     try:
         with open(APPS_CONFIG) as f:
             data = json.load(f)
-        return data.get('favorites', [])
+        favorites = data.get('favorites', [])
+        apps = data.get('apps', [])
+        if not isinstance(favorites, list):
+            favorites = []
+        if not isinstance(apps, list):
+            apps = []
+        return favorites, apps
     except Exception as e:
         _log(f'Could not read apps config: {e}')
-        return []
+        return [], []
 
 
 def load_colors():
@@ -278,8 +285,20 @@ def fetch_colors_for_app(app):
 
 def main():
     _log('starting')
-    apps   = load_apps()
+    favorites, apps = load_apps_config()
     colors = load_colors()
+
+    if not favorites and not apps:
+        _log('No apps found in config — nothing to do')
+        return
+
+    fav_ids = {a.get('id') for a in favorites if isinstance(a, dict) and a.get('id')}
+    non_favorites = [
+        a for a in apps
+        if isinstance(a, dict) and a.get('id') and a.get('id') not in fav_ids
+    ]
+    non_favorites.sort(key=lambda a: (a.get('name', '').lower(), a.get('id', '')))
+    ordered_apps = favorites + non_favorites
 
     # Fetch an app if:
     #   - it has no colour entry yet (None or missing), OR
@@ -293,7 +312,7 @@ def main():
             return False  # system app: colours done, no icon expected
         return not (ICONS_DIR / f"{app['id']}.png").exists()
 
-    to_fetch = [a for a in apps if needs_fetch(a)]
+    to_fetch = [a for a in ordered_apps if needs_fetch(a)]
 
     if not to_fetch:
         _log('All apps already processed — nothing to do')
