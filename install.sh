@@ -167,6 +167,9 @@ if ! $_has_devices; then
     _setup_answer="${_setup_answer:-Y}"
     if [[ "${_setup_answer,,}" =~ ^(y|yes)$ ]]; then
         echo ""
+        echo "Scanning for available devices..."
+        "${HELPER_DIR}/atv_control.py" scan || true
+        echo ""
         "${HELPER_DIR}/atv_setup.py" || true
         echo ""
     fi
