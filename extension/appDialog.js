@@ -48,6 +48,14 @@ class AppDialog extends ModalDialog.ModalDialog {
                 key: Clutter.KEY_Escape,
             },
         ]);
+
+        // Force OK button text to white (CSS alone doesn't override modal dialog theme)
+        const buttons = this.buttonLayout.get_children();
+        for (const btn of buttons) {
+            if (btn.child && btn.child.text === _('OK')) {
+                btn.add_style_class_name('app-dialog-ok-btn');
+            }
+        }
     }
 
     close() {

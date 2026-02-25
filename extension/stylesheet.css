@@ -360,3 +360,8 @@
     padding: 10px;
 }
 
+/* OK button in app-dialog: white text on dark background */
+.app-dialog-ok-btn {
+    color: white !important;
+}
+

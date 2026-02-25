@@ -67,6 +67,9 @@ Restart GNOME Shell to load extension changes:
   journalctl /usr/bin/gnome-shell -f | grep -i appletv
   ```
 - When building new UI components, mock `_send()` returns to avoid needing a real device
+- App chooser grid uses `Clutter.FixedLayout` with manual tile positioning in
+  `extension/appChooser.js` to avoid the CSS/layout timing race entirely. Tiles are positioned
+  at exact pixel coordinates, so `FlowLayout` preferred-size measurement never occurs.
 
 ## Adding New Features
 

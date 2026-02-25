@@ -26,6 +26,9 @@ The workspace contains:
 - To call backend commands, use the `_send()` helper which invokes `atv_control.py` via `Gio.Subprocess`. The returned JSON is parsed for success or error.
 - UI changes require re-running `./install.sh` and restarting GNOME Shell to take effect.
 - Logs from `log()` appear in `journalctl /usr/bin/gnome-shell -f | grep -i appletv`.
+- App chooser grid uses `Clutter.FixedLayout` with manually positioned tiles in
+  `extension/appChooser.js`; tiles are sized at (89, 50) and positioned at exact pixel
+  coordinates to avoid the CSS/layout timing race.
 
 ### Installation & Deployment
 

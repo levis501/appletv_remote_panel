@@ -15,8 +15,16 @@ const APP_COLOR_CLASSES = {
     'com.hulu.HuluTV':         'appletv-app-color-hulu',
 };
 
-const AppButton = GObject.registerClass(
-class AppButton extends St.Button {
+const APP_TILE_WIDTH = 89;  // 59 * 1.5 for wider dialog buttons
+const APP_TILE_HEIGHT = 50;
+const TILES_PER_ROW = 3;
+const COL_SPACING = 12;
+const ROW_SPACING = 12;
+const START_X = 12;
+const START_Y = 12;
+
+const AppTile = GObject.registerClass(
+class AppTile extends St.Button {
     _init(extension, atvDevice, app) {
         super._init({
             style_class: 'appletv-quick-app-btn appletv-app-chooser-btn',
@@ -91,12 +99,10 @@ class AppChooser extends St.BoxLayout {
         this._atvDevice = atvDevice;
         this._appButtons = new Map();
 
+        // Use manual FixedLayout positioning instead of FlowLayout to avoid
+        // CSS/layout timing races. No preferred-size measurement occurs.
         this._grid = new St.Widget({
-            layout_manager: new Clutter.FlowLayout({
-                orientation: Clutter.Orientation.HORIZONTAL,
-                column_spacing: 12,
-                row_spacing: 12,
-            }),
+            layout_manager: new Clutter.FixedLayout(),
             style_class: 'app-chooser-grid',
             x_expand: true,
             y_expand: true,
@@ -130,11 +136,26 @@ class AppChooser extends St.BoxLayout {
                 }
             }
 
-            for (const app of apps) {
-                const btn = new AppButton(this._extension, this._atvDevice, app);
+            for (let i = 0; i < apps.length; i++) {
+                const app = apps[i];
+                const btn = new AppTile(this._extension, this._atvDevice, app);
+                btn.set_size(APP_TILE_WIDTH, APP_TILE_HEIGHT);
+
+                // Manual positioning: calculate grid row/col and set position
+                const col = i % TILES_PER_ROW;
+                const row = Math.floor(i / TILES_PER_ROW);
+                const x = START_X + col * (APP_TILE_WIDTH + COL_SPACING);
+                const y = START_Y + row * (APP_TILE_HEIGHT + ROW_SPACING);
+
                 this._grid.add_child(btn);
+                btn.set_position(x, y);
                 this._appButtons.set(app.id, btn);
             }
+
+            // Set grid size to accommodate all tiles
+            const totalRows = Math.ceil(apps.length / TILES_PER_ROW);
+            const gridHeight = START_Y + totalRows * (APP_TILE_HEIGHT + ROW_SPACING);
+            this._grid.set_size(315, gridHeight);
         } catch (e) {
             this.remove_child(loading);
             this.add_child(new St.Label({ text: _('Error loading apps: %s').format(e.message) }));
