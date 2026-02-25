@@ -16,11 +16,11 @@ import { DeviceDialog } from './deviceDialog.js';
 // App button layout inside the remote widget.
 // Lowest hitbox bottom: y=566 (volume_down at y=483, h=83). App buttons start 12px below.
 const APP_BTNS_Y = 578;
-// 3 columns: 12px left margin, 50px btn, 12px gap, 50px btn, 12px gap, 50px btn, 12px right = 198px
-const APP_BTN_COLS = [12, 74, 136];
+// 3 columns centered: 6px gaps, total content 162px, centered in 225px remote
+const APP_BTN_COLS = [32, 88, 144];
 const APP_BTN_W = 50;
 const APP_BTN_H = 50;
-const APP_BTN_ROW_H = APP_BTN_H + 12; // row height including gap
+const APP_BTN_ROW_H = APP_BTN_H + 6; // row height including 6px gap
 
 const DEFAULT_FAVORITE_APPS = [
     { id: 'com.apple.TVWatchList',  name: 'TV' },
@@ -238,7 +238,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         }
 
         const bin = new St.Bin({ child: remote, x_align: Clutter.ActorAlign.CENTER });
-        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'appletv-remote-item' });
         item.add_child(bin);
         this.menu.addMenuItem(item);
     }
