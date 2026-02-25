@@ -26,9 +26,13 @@ The workspace contains:
 - To call backend commands, use the `_send()` helper which invokes `atv_control.py` via `Gio.Subprocess`. The returned JSON is parsed for success or error.
 - UI changes require re-running `./install.sh` and restarting GNOME Shell to take effect.
 - Logs from `log()` appear in `journalctl /usr/bin/gnome-shell -f | grep -i appletv`.
+### GNOME Shell Extension UI Gotchas
+
+- **Dialog population**: Avoid `await` in dialog layout. Async I/O creates unpredictable event-loop resumption points that cause CSS/Clutter layout timing races. Cache data before opening the dialog and populate synchronously. If you must use `await`, use `Clutter.FixedLayout` with manual tile positioning instead of flow layouts.
 - App chooser grid uses `Clutter.FixedLayout` with manually positioned tiles in
-  `extension/appChooser.js`; tiles are sized at (89, 50) and positioned at exact pixel
-  coordinates to avoid the CSS/layout timing race.
+  `extension/appChooser.js`; tiles are sized at (50, 50) in a 4-column grid and
+  positioned at exact pixel coordinates to avoid the CSS/layout timing race. Long
+  app names are wrapped to two lines before rendering.
 
 ### Installation & Deployment
 

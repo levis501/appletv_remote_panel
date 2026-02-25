@@ -56,28 +56,35 @@ fi
 echo "  Installing pyatv (may take a moment)..."
 "${PYTHON_VENV}/bin/pip" install --quiet pyatv
 echo "  pyatv installed."
+echo "  Installing duckduckgo-search and Pillow..."
+"${PYTHON_VENV}/bin/pip" install --quiet duckduckgo-search Pillow
+echo "  duckduckgo-search and Pillow installed."
 
 # ── 4. Install Python helpers ─────────────────────────────────────────────────
 echo ""
 echo "[4/6] Installing helper scripts..."
 
 # Copy scripts
-cp "${SCRIPT_DIR}/atv_control.py" "${HELPER_DIR}/atv_control.py"
-cp "${SCRIPT_DIR}/atv_setup.py"   "${HELPER_DIR}/atv_setup.py"
-cp "${SCRIPT_DIR}/atv_daemon.py"  "${HELPER_DIR}/atv_daemon.py"
+cp "${SCRIPT_DIR}/atv_control.py"       "${HELPER_DIR}/atv_control.py"
+cp "${SCRIPT_DIR}/atv_setup.py"         "${HELPER_DIR}/atv_setup.py"
+cp "${SCRIPT_DIR}/atv_daemon.py"        "${HELPER_DIR}/atv_daemon.py"
+cp "${SCRIPT_DIR}/atv_color_fetcher.py" "${HELPER_DIR}/atv_color_fetcher.py"
 
 # Rewrite shebang to use the venv's Python so the script is self-contained
 sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_control.py"
 sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_setup.py"
 sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_daemon.py"
+sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_color_fetcher.py"
 chmod +x "${HELPER_DIR}/atv_control.py"
 chmod +x "${HELPER_DIR}/atv_setup.py"
 chmod +x "${HELPER_DIR}/atv_daemon.py"
+chmod +x "${HELPER_DIR}/atv_color_fetcher.py"
 
-echo "  atv_control.py → ${HELPER_DIR}/atv_control.py"
-echo "  atv_setup.py   → ${HELPER_DIR}/atv_setup.py"
-echo "  atv_daemon.py  → ${HELPER_DIR}/atv_daemon.py"
-echo "  Using Python:     ${VENV_PYTHON}"
+echo "  atv_control.py       → ${HELPER_DIR}/atv_control.py"
+echo "  atv_setup.py         → ${HELPER_DIR}/atv_setup.py"
+echo "  atv_daemon.py        → ${HELPER_DIR}/atv_daemon.py"
+echo "  atv_color_fetcher.py → ${HELPER_DIR}/atv_color_fetcher.py"
+echo "  Using Python:           ${VENV_PYTHON}"
 
 # ── 5. Install GNOME extension ────────────────────────────────────────────────
 echo ""

@@ -21,12 +21,14 @@ The extension spawns `atv_daemon.py` once (on first `_send()` call) and keeps it
 - `atv_daemon.py` — persistent daemon; maintains live pyatv connections; used by the extension at runtime
 - `atv_control.py` — one-shot CLI tool for testing backend commands directly
 - `atv_setup.py` — interactive device manager: scan/add/re-pair devices, remove devices
-- `install.sh` — sets up venv, installs `pyatv`, deploys extension and scripts
+- `atv_color_fetcher.py` — one-shot script: fetches app icons from iTunes API, extracts dominant colour, writes `app_colors.json`
+- `install.sh` — sets up venv, installs `pyatv`/`duckduckgo-search`/`Pillow`, deploys extension and scripts
 - `extension/extension.js` — main extension entry point; `_send()` writes to daemon stdin
 - `extension/appChooser.js`, `extension/appDialog.js` — UI subcomponents
 - `extension/stylesheet.css` — extension styles
 - `extension/metadata.json` — GNOME extension metadata
 - `~/.config/appletv-remote/devices.json` — device credentials and config (not in repo)
+- `~/.config/appletv-remote/app_colors.json` — cached app button colours (written by `atv_color_fetcher.py`)
 
 ## Development Workflow
 
@@ -69,7 +71,8 @@ Restart GNOME Shell to load extension changes:
 - When building new UI components, mock `_send()` returns to avoid needing a real device
 - App chooser grid uses `Clutter.FixedLayout` with manual tile positioning in
   `extension/appChooser.js` to avoid the CSS/layout timing race entirely. Tiles are positioned
-  at exact pixel coordinates, so `FlowLayout` preferred-size measurement never occurs.
+  at exact pixel coordinates (50 x 50) in a 4-column grid, so `FlowLayout` preferred-size
+  measurement never occurs. Long app names are wrapped to two lines before rendering.
 
 ## Adding New Features
 

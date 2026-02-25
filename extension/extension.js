@@ -13,15 +13,12 @@ import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/
 import { AppDialog } from './appDialog.js';
 import { DeviceDialog } from './deviceDialog.js';
 
-// ms to wait before firing left/right; a second tap within this window fires skip instead
-const DCLICK_MS = 400;
-
 // App button layout inside the remote widget.
 // Lowest hitbox bottom: y=566 (volume_down at y=483, h=83). App buttons start 12px below.
 const APP_BTNS_Y = 578;
-// 3 columns: 12px left margin, 59px btn, 12px gap, 59px btn, 12px gap, 59px btn, 12px right = 225px
-const APP_BTN_COLS = [12, 83, 154];
-const APP_BTN_W = 59;
+// 3 columns: 12px left margin, 50px btn, 12px gap, 50px btn, 12px gap, 50px btn, 12px right = 198px
+const APP_BTN_COLS = [12, 74, 136];
+const APP_BTN_W = 50;
 const APP_BTN_H = 50;
 const APP_BTN_ROW_H = APP_BTN_H + 12; // row height including gap
 
@@ -72,10 +69,6 @@ class AppleTVIndicator extends PanelMenu.Button {
 
         this._pollTimer = null;
         this._lastTitle = null;
-
-        // Issue 4: deferred-fire timers for left/right d-pad
-        this._dClickLeftTimer = null;
-        this._dClickRightTimer = null;
 
         // Issue 6: currently active app id (from metadata polling)
         this._currentAppId = null;
@@ -220,35 +213,6 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._remoteLight = light;
         this._setRemoteReady(false);
 
-        // Issue 4: wait DCLICK_MS before firing left/right.
-        // A second tap within the window cancels the timer and fires the skip command.
-        const leftCmd = () => {
-            if (this._dClickLeftTimer) {
-                GLib.source_remove(this._dClickLeftTimer);
-                this._dClickLeftTimer = null;
-                this._send('skip_prev', this._selectedId);
-            } else {
-                this._dClickLeftTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, DCLICK_MS, () => {
-                    this._dClickLeftTimer = null;
-                    this._send('left', this._selectedId);
-                    return GLib.SOURCE_REMOVE;
-                });
-            }
-        };
-        const rightCmd = () => {
-            if (this._dClickRightTimer) {
-                GLib.source_remove(this._dClickRightTimer);
-                this._dClickRightTimer = null;
-                this._send('skip_next', this._selectedId);
-            } else {
-                this._dClickRightTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, DCLICK_MS, () => {
-                    this._dClickRightTimer = null;
-                    this._send('right', this._selectedId);
-                    return GLib.SOURCE_REMOVE;
-                });
-            }
-        };
-
         // Long press for select button
         this._selectTimer = null;
         let selectLongPressed = false;
@@ -274,16 +238,20 @@ class AppleTVIndicator extends PanelMenu.Button {
         };
 
         // Hit regions from atv_remote_hitboxes.png (225×877).
-        // Issue 2: mid-green (0,128,0) top-left → device manager.
+        // Mid-green (0,128,0) top-left → device manager.
+        // Azure (0,127,255) left edge → skip_prev; Bone (227,218,201) right edge → skip_next.
         const regions = [
             { command: () => this._openDeviceDialog(), x: 0,   y: 0,   w: 92,  h: 92 },
             { command: () => this._togglePower(),       x: 133, y: 0,   w: 92,  h: 92 },
 
-            { command: 'up',      x: 42,  y: 78,  w: 143, h: 64 },
-            { command: leftCmd,   x: 5,   y: 115, w: 65,  h: 144 },
-            { command: selectCmd, x: 56,  y: 130, w: 114, h: 111, className: 'appletv-hit-circle' },
-            { command: rightCmd,  x: 157, y: 114, w: 67,  h: 144 },
-            { command: 'down',    x: 43,  y: 230, w: 144, h: 66 },
+            { command: 'up',        x: 42,  y: 78,  w: 143, h: 64 },
+            { command: 'left',      x: 5,   y: 115, w: 65,  h: 144 },
+            { command: selectCmd,   x: 56,  y: 130, w: 114, h: 111, className: 'appletv-hit-circle' },
+            { command: 'right',     x: 157, y: 114, w: 67,  h: 144 },
+            { command: 'down',      x: 43,  y: 230, w: 144, h: 66 },
+
+            { command: 'skip_prev', x: 0,   y: 244, w: 51,  h: 57 },
+            { command: 'skip_next', x: 174, y: 244, w: 51,  h: 57 },
 
             { command: 'menu',        x: 21,  y: 291, w: 85, h: 85 },
             { command: 'home',        x: 118, y: 293, w: 83, h: 83 },
@@ -339,8 +307,11 @@ class AppleTVIndicator extends PanelMenu.Button {
 
     _makeQuickAppButton(app) {
         const iconFile = this._extension.getAppIconSync(app);
-        // Apply brand-color class only when no icon is available
-        const colorClass = iconFile ? null : (APP_COLOR_CLASSES[app.id] || null);
+        const fetchedColors = this._extension.getAppColor(app.id);
+        const isLoading = !iconFile && !this._extension.hasAppBeenProcessed(app.id);
+
+        // Priority: fetched colors > CSS brand class (only when no icon, not loading, no fetched colors)
+        const colorClass = (!iconFile && !fetchedColors && !isLoading) ? (APP_COLOR_CLASSES[app.id] || null) : null;
         const styleClasses = ['appletv-quick-app-btn', ...(colorClass ? [colorClass] : [])].join(' ');
 
         const btn = new St.Button({
@@ -348,24 +319,44 @@ class AppleTVIndicator extends PanelMenu.Button {
             can_focus: true,
         });
 
-        const box = new St.BoxLayout({ vertical: true, x_align: Clutter.ActorAlign.CENTER });
-
         if (iconFile) {
-            const icon = new St.Icon({
-                gicon: new Gio.FileIcon({ file: iconFile }),
-                style_class: 'appletv-quick-app-icon',
+            // Real icon fills the whole button — no label
+            btn.add_style_class_name('appletv-quick-app-btn-with-icon');
+            btn.set_style(
+                `background-image: url("${iconFile.get_path()}"); ` +
+                `background-size: ${APP_BTN_W}px ${APP_BTN_H}px; ` +
+                'background-position: center; background-repeat: no-repeat;'
+            );
+        } else if (isLoading) {
+            // Loading state: black background with centered white app name
+            const loadingPath = `${this._extension.path}/icons/apps/loading.png`;
+            btn.set_style(
+                `background-image: url("${loadingPath}"); ` +
+                'background-size: 100% 100%; background-repeat: no-repeat;'
+            );
+            btn.set_child(new St.Label({
+                text: app.name,
+                style_class: 'appletv-quick-app-label',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+            }));
+        } else {
+            // Color fallback (Apple system apps etc.) — centered label
+            if (fetchedColors) {
+                btn.set_style(`background-color: ${fetchedColors.bg};`);
+            }
+            const label = new St.Label({
+                text: app.name,
+                style_class: 'appletv-quick-app-label',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
             });
-            box.add_child(icon);
+            if (fetchedColors) {
+                label.set_style(`color: ${fetchedColors.text};`);
+            }
+            btn.set_child(label);
         }
 
-        const label = new St.Label({
-            text: app.name,
-            style_class: 'appletv-quick-app-label',
-            x_align: Clutter.ActorAlign.CENTER,
-        });
-        box.add_child(label);
-
-        btn.set_child(box);
         btn.connect('button-press-event', () => {
             if (this._selectedId) {
                 log(`[AppleTV] Quick-launching app ${app.name} (${app.id}) (prior app: ${this._currentAppId || 'unknown'})`);
@@ -745,14 +736,6 @@ class AppleTVIndicator extends PanelMenu.Button {
 
     destroy() {
         this._stopPolling();
-        if (this._dClickLeftTimer) {
-            GLib.source_remove(this._dClickLeftTimer);
-            this._dClickLeftTimer = null;
-        }
-        if (this._dClickRightTimer) {
-            GLib.source_remove(this._dClickRightTimer);
-            this._dClickRightTimer = null;
-        }
         if (this._selectTimer) {
             GLib.source_remove(this._selectTimer);
             this._selectTimer = null;
@@ -766,14 +749,98 @@ class AppleTVIndicator extends PanelMenu.Button {
 export default class AppleTVRemoteExtension extends Extension {
     enable() {
         log('AppleTV-Remote: enable()');
+        this._appColors = {};
+        this._colorMonitor = null;
+        this._loadAppColors();
         this._indicator = new AppleTVIndicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
+        this._watchColorFile();
+        this._startColorFetcher();
     }
 
     disable() {
         log('AppleTV-Remote: disable()');
+        if (this._colorMonitor) {
+            this._colorMonitor.cancel();
+            this._colorMonitor = null;
+        }
         this._indicator?.destroy();
         this._indicator = null;
+        this._appColors = {};
+    }
+
+    // ── App colour management ──────────────────────────────────────────────
+
+    _colorsConfigPath() {
+        return `${GLib.get_home_dir()}/.config/appletv-remote/app_colors.json`;
+    }
+
+    /**
+     * Load app colours from app_colors.json into memory.
+     * Silently keeps existing colours if the file is missing or corrupt.
+     */
+    _loadAppColors() {
+        try {
+            const [ok, bytes] = GLib.file_get_contents(this._colorsConfigPath());
+            if (ok) {
+                const parsed = JSON.parse(new TextDecoder().decode(bytes));
+                if (parsed && typeof parsed === 'object') {
+                    this._appColors = parsed;
+                }
+            }
+        } catch (_e) {}
+    }
+
+    /**
+     * Returns {bg, text} colour strings for the given app ID, or null if
+     * no colour has been fetched yet (or the fetch failed).
+     */
+    getAppColor(appId) {
+        return this._appColors?.[appId] || null;
+    }
+
+    /**
+     * Returns true if atv_color_fetcher.py has already attempted to process
+     * this app (whether or not it found a colour).  Returns false when the app
+     * has never been processed — i.e. the icon is still being fetched.
+     */
+    hasAppBeenProcessed(appId) {
+        return this._appColors != null && appId in this._appColors;
+    }
+
+    /**
+     * Watch app_colors.json for changes written by atv_color_fetcher.py and
+     * refresh the quick-launch buttons each time new colours arrive.
+     */
+    _watchColorFile() {
+        const file = Gio.File.new_for_path(this._colorsConfigPath());
+        try {
+            this._colorMonitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
+            this._colorMonitor.connect('changed', () => {
+                this._loadAppColors();
+                this._indicator?._refreshAppButtons();
+            });
+        } catch (e) {
+            log(`AppleTV-Remote: failed to watch color file: ${e}`);
+        }
+    }
+
+    /**
+     * Spawn atv_color_fetcher.py in the background.  It exits when done, so
+     * spawning it multiple times is harmless (already-fetched apps are skipped).
+     */
+    _startColorFetcher() {
+        const venvPython  = `${GLib.get_home_dir()}/.config/appletv-remote/venv/bin/python3`;
+        const fetcherPath = `${GLib.get_home_dir()}/.config/appletv-remote/atv_color_fetcher.py`;
+        try {
+            const fetcher = new Gio.Subprocess({
+                argv: [venvPython, fetcherPath],
+                flags: Gio.SubprocessFlags.NONE,
+            });
+            fetcher.init(null);
+        } catch (e) {
+            log(`AppleTV-Remote: could not start color fetcher: ${e}`);
+        }
     }
 
     // ── App favorites config ───────────────────────────────────────────────

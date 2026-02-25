@@ -180,8 +180,8 @@ function buildWindow(app) {
     outer.append(scroll);
 
     const flow = new Gtk.FlowBox({
-        max_children_per_line: 5,
-        min_children_per_line: 3,
+        max_children_per_line: 4,
+        min_children_per_line: 4,
         homogeneous: true,
         column_spacing: 12,
         row_spacing: 12,

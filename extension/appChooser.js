@@ -15,13 +15,64 @@ const APP_COLOR_CLASSES = {
     'com.hulu.HuluTV':         'appletv-app-color-hulu',
 };
 
-const APP_TILE_WIDTH = 89;  // 59 * 1.5 for wider dialog buttons
+const APP_TILE_WIDTH = 50;
 const APP_TILE_HEIGHT = 50;
-const TILES_PER_ROW = 3;
+const TILES_PER_ROW = 4;
 const COL_SPACING = 12;
 const ROW_SPACING = 12;
 const START_X = 12;
 const START_Y = 12;
+const MIN_WRAP_CHARS = 9;
+
+function wrapAppName(name) {
+    if (!name || name.length < MIN_WRAP_CHARS) {
+        return name;
+    }
+
+    const mid = Math.floor(name.length / 2);
+    const spaceIndices = [];
+    for (let i = 1; i < name.length - 1; i++) {
+        if (name[i] === ' ') {
+            spaceIndices.push(i);
+        }
+    }
+    if (spaceIndices.length > 0) {
+        let bestIdx = spaceIndices[0];
+        let bestDist = Math.abs(spaceIndices[0] - mid);
+        for (const idx of spaceIndices) {
+            const dist = Math.abs(idx - mid);
+            if (dist < bestDist) {
+                bestIdx = idx;
+                bestDist = dist;
+            }
+        }
+        const left = name.slice(0, bestIdx + 1).trimEnd();
+        const right = name.slice(bestIdx + 1).trimStart();
+        return `${left}\n${right}`;
+    }
+
+    const capIndices = [];
+    for (let i = 1; i < name.length; i++) {
+        const ch = name[i];
+        if (ch >= 'A' && ch <= 'Z') {
+            capIndices.push(i);
+        }
+    }
+    if (capIndices.length > 0) {
+        let bestIdx = capIndices[0];
+        let bestDist = Math.abs(capIndices[0] - mid);
+        for (const idx of capIndices) {
+            const dist = Math.abs(idx - mid);
+            if (dist < bestDist) {
+                bestIdx = idx;
+                bestDist = dist;
+            }
+        }
+        return `${name.slice(0, bestIdx)}\n${name.slice(bestIdx)}`;
+    }
+
+    return `${name.slice(0, mid)}\n${name.slice(mid)}`;
+}
 
 const AppTile = GObject.registerClass(
 class AppTile extends St.Button {
@@ -35,29 +86,53 @@ class AppTile extends St.Button {
         this._atvDevice = atvDevice;
         this._app = app;
 
-        const iconFile = this._extension.getAppIconSync(app);
-        const colorClass = iconFile ? null : (APP_COLOR_CLASSES[app.id] || null);
+        const iconFile      = this._extension.getAppIconSync(app);
+        const fetchedColors = this._extension.getAppColor(app.id);
+        const isLoading     = !iconFile && !this._extension.hasAppBeenProcessed(app.id);
+
+        // Priority: fetched colors > CSS brand class (only when no icon, not loading, no fetched colors)
+        const colorClass = (!iconFile && !fetchedColors && !isLoading) ? (APP_COLOR_CLASSES[app.id] || null) : null;
         if (colorClass) {
             this.add_style_class_name(colorClass);
         }
 
-        const box = new St.BoxLayout({ vertical: true, x_align: Clutter.ActorAlign.CENTER });
-        this.set_child(box);
-
         if (iconFile) {
-            this._icon = new St.Icon({
-                gicon: new Gio.FileIcon({ file: iconFile }),
-                style_class: 'appletv-quick-app-icon',
+            // Real icon fills the whole button — no label
+            this.add_style_class_name('appletv-quick-app-btn-with-icon');
+            this.set_style(
+                `background-image: url("${iconFile.get_path()}"); ` +
+                `background-size: ${APP_TILE_WIDTH}px ${APP_TILE_HEIGHT}px; ` +
+                'background-position: center; background-repeat: no-repeat;'
+            );
+        } else if (isLoading) {
+            // Loading state: black background with centered white app name
+            const loadingPath = `${extension.path}/icons/apps/loading.png`;
+            this.set_style(
+                `background-image: url("${loadingPath}"); ` +
+                'background-size: 100% 100%; background-repeat: no-repeat;'
+            );
+            this.set_child(new St.Label({
+                text: wrapAppName(app.name),
+                style_class: 'appletv-quick-app-label',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+            }));
+        } else {
+            // Color fallback (Apple system apps etc.) — centered label
+            if (fetchedColors) {
+                this.set_style(`background-color: ${fetchedColors.bg};`);
+            }
+            const label = new St.Label({
+                text: wrapAppName(app.name),
+                style_class: 'appletv-quick-app-label',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
             });
-            box.add_child(this._icon);
+            if (fetchedColors) {
+                label.set_style(`color: ${fetchedColors.text};`);
+            }
+            this.set_child(label);
         }
-
-        const label = new St.Label({
-            text: app.name,
-            style_class: 'appletv-quick-app-label',
-            x_align: Clutter.ActorAlign.CENTER,
-        });
-        box.add_child(label);
 
         this.connect('button-press-event', () => this._toggle());
 
@@ -154,8 +229,9 @@ class AppChooser extends St.BoxLayout {
 
             // Set grid size to accommodate all tiles
             const totalRows = Math.ceil(apps.length / TILES_PER_ROW);
-            const gridHeight = START_Y + totalRows * (APP_TILE_HEIGHT + ROW_SPACING);
-            this._grid.set_size(315, gridHeight);
+            const gridHeight = (START_Y * 2) + (totalRows * APP_TILE_HEIGHT) + ((totalRows - 1) * ROW_SPACING);
+            const gridWidth = (START_X * 2) + (TILES_PER_ROW * APP_TILE_WIDTH) + ((TILES_PER_ROW - 1) * COL_SPACING);
+            this._grid.set_size(gridWidth, gridHeight);
         } catch (e) {
             this.remove_child(loading);
             this.add_child(new St.Label({ text: _('Error loading apps: %s').format(e.message) }));

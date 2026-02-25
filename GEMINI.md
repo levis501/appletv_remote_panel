@@ -26,8 +26,9 @@ If the extension is failing to load, crashing, or throwing UI errors:
   - **Wayland:** You must log out and log back in, or use a nested session for testing (`dbus-run-session -- gnome-shell --nested --wayland`).
 - **Debugging Subprocesses:** The extension uses `Gio.Subprocess` in `extension.js` (`_send()` method). If commands fail, check the stderr output logged via the `log()` function, which will appear in `journalctl`.
 - **App chooser sizing race:** `extension/appChooser.js` uses `Clutter.FixedLayout` with
-  manual tile positioning (x/y coordinates calculated per row/column). This bypasses
-  `FlowLayout` preferred-size measurement entirely.
+  manual tile positioning (x/y coordinates calculated per row/column). Tiles are 50 x 50
+  in a 4-column grid, and long app names are wrapped to two lines before rendering. This
+  bypasses `FlowLayout` preferred-size measurement entirely.
 
 ### 2. Python Backend & `pyatv` Issues
 If the UI works but commands (play, pause, volume) fail, or metadata isn't updating, the issue is likely in the Python backend or pairing.

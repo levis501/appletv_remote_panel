@@ -17,4 +17,4 @@ HITBOX_COLORMAP.md
     White - (255, 255, 255) - open app selector
     Mid Green - (0, 128, 0) - open device selector
     Azure - (0, 127, 255) - skip left
-    Bone - (89, 85, 79) - skip right
+    Bone - (227, 218, 201) - skip right

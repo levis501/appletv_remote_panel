@@ -185,11 +185,11 @@
 /* ── App quick-launch buttons (below remote) ─────────────────────────────── */
 
 .appletv-quick-app-btn {
-    border-radius: 12px;
-    width: 66px;
+    border-radius: 10px;
+    width: 50px;
     height: 50px;
     margin: 3px;
-    padding: 6px 4px;
+    padding: 0;
     background-color: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
@@ -229,8 +229,9 @@
 .appletv-app-color-netflix:hover  { background-color: #ff0f1e; }
 .appletv-app-color-hulu:hover     { background-color: #5ad65a; }
 
-.appletv-quick-app-icon {
-    icon-size: 28px;
+/* When a real icon fills the button, reduce padding so the icon uses the full area */
+.appletv-quick-app-btn-with-icon {
+    padding: 0;
 }
 
 .appletv-quick-app-label {
@@ -248,10 +249,15 @@
 /* Chooser button size — compound selector (specificity 0,2,0) beats single-class
    width: 66px from appletv-quick-app-btn (0,1,0). No !important needed. */
 .appletv-quick-app-btn.appletv-app-chooser-btn {
-    width: 59px;
-    min-width: 59px;
+    width: 50px;
+    min-width: 50px;
     height: 50px;
     min-height: 50px;
+    padding: 0;
+}
+
+.appletv-app-chooser-btn.appletv-quick-app-btn-with-icon {
+    padding: 0;
 }
 
 /* ── Device management dialog ────────────────────────────────────────────── */
