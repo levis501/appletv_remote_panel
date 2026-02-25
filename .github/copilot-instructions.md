@@ -37,6 +37,7 @@ The workspace contains:
 ### Installation & Deployment
 
 - `install.sh` sets up a Python venv at `~/.config/appletv-remote/venv`, installs dependencies, and copies scripts and extension files.
+- Fresh installs invoke `atv_setup.py --auto-add` so the initial scan immediately prompts for device selection.
 - After editing any project file, re-run `./install.sh` before testing.
 - On Wayland, restart the session to load new extension code; on X11 use Alt+F2 `r`.
 

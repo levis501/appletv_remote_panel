@@ -10,6 +10,7 @@ The project is split into two main components:
 
 ### Installation & Deployment Lifecycle
 - `install.sh` creates a Python virtual environment at `~/.config/appletv-remote/venv`, installs `pyatv`, and copies the python scripts.
+- On fresh installs, `install.sh` runs `atv_setup.py --auto-add` so the initial scan immediately prompts for device selection.
 - The GNOME extension is installed to `~/.local/share/gnome-shell/extensions/appletv-remote@local`.
 - **Important:** When developing, changes made in the local repository (e.g., `/home/levis/Development/appletv_remote_panel`) are *not* automatically reflected. You must re-run `./install.sh` to copy the updated scripts and extension files to their respective run locations.
 

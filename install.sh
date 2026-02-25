@@ -177,10 +177,8 @@ if ! $_has_devices; then
     _setup_answer="${_setup_answer:-Y}"
     if [[ "${_setup_answer,,}" =~ ^(y|yes)$ ]]; then
         echo ""
-        echo "Scanning for available devices..."
-        "${HELPER_DIR}/atv_control.py" scan || true
-        echo ""
-        ATTEMPT_MRP="${_attempt_mrp}" "${HELPER_DIR}/atv_setup.py" || true
+        echo "Launching device setup..."
+        ATTEMPT_MRP="${_attempt_mrp}" "${HELPER_DIR}/atv_setup.py" --auto-add || true
         echo ""
     fi
 fi

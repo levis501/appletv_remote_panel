@@ -94,6 +94,7 @@ Keep AI instruction files current after every significant change:
 ## Pairing Notes
 
 - `atv_setup.py` is an interactive loop: choose `[a]` to scan and add/re-pair, `[r]` to remove a device, `[q]` to quit. Existing devices not selected in a run are preserved.
+- Fresh installs invoke `atv_setup.py --auto-add` so the initial scan immediately prompts for device selection.
 - Pairing order: **MRP first** (required — enables all remote control and metadata), then **Companion** (optional, recommended for tvOS 15+).
 - MRP is required for remote control and most metadata.
 - Back up `devices.json` before testing pairing changes.

@@ -19,6 +19,7 @@ CONFIG_PATH = os.path.join(CONFIG_DIR, "devices.json")
 
 # Check if MRP pairing should be attempted (default: true)
 ATTEMPT_MRP = os.environ.get("ATTEMPT_MRP", "true").lower() == "true"
+AUTO_ADD = "--auto-add" in sys.argv
 
 
 def load_config():
@@ -242,6 +243,10 @@ def cmd_remove_device(cfg):
 
 
 async def setup():
+    cfg = load_config()
+    if AUTO_ADD:
+        await cmd_add_devices(cfg)
+
     while True:
         cfg = load_config()
         devices = cfg.get("devices", [])
