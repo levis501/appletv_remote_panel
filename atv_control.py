@@ -114,7 +114,13 @@ async def build_config(entry):
 
 async def cmd_scan():
     import pyatv
+    from pyatv.const import OperatingSystem
     found = await pyatv.scan(asyncio.get_running_loop(), timeout=5)
+    # Filter to only include Apple TVs (tvOS devices)
+    apple_tvs = [
+        a for a in found
+        if a.device_info and a.device_info.operating_system == OperatingSystem.TvOS
+    ]
     out({"devices": [
         {
             "name":    a.name,
@@ -122,7 +128,7 @@ async def cmd_scan():
             "address": str(a.address),
             "model":   str(a.device_info.model_str) if a.device_info else "Unknown",
         }
-        for a in found
+        for a in apple_tvs
     ]})
 
 

@@ -102,35 +102,6 @@ class AppleTVIndicator extends PanelMenu.Button {
         // --- Remote graphic with overlaid hit regions and app buttons ---
         this._remoteControls();
 
-        // --- Position label ---
-        this._positionLabel = new St.Label({ text: '', style_class: 'appletv-position-label' });
-        const positionBin = new St.Bin({ child: this._positionLabel, x_align: Clutter.ActorAlign.CENTER });
-        const positionItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        positionItem.add_child(positionBin);
-        this.menu.addMenuItem(positionItem);
-
-        // --- Metadata ---
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        this._metaBox = new St.BoxLayout({ vertical: false, style_class: 'appletv-meta-box' });
-        this._artwork = new St.Icon({ style_class: 'appletv-artwork' });
-        this._metaBox.add_child(this._artwork);
-
-        this._metaTextBox = new St.BoxLayout({ vertical: true, style_class: 'appletv-meta-text-box' });
-        this._metaTitle = new St.Label({ style_class: 'appletv-meta-title' });
-        this._metaArtist = new St.Label({ style_class: 'appletv-meta-artist' });
-        this._metaAlbum = new St.Label({ style_class: 'appletv-meta-album' });
-        this._metaSeries = new St.Label({ style_class: 'appletv-meta-series' });
-        this._metaTextBox.add_child(this._metaTitle);
-        this._metaTextBox.add_child(this._metaArtist);
-        this._metaTextBox.add_child(this._metaAlbum);
-        this._metaTextBox.add_child(this._metaSeries);
-        this._metaBox.add_child(this._metaTextBox);
-
-        const metaItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        metaItem.add_child(this._metaBox);
-        this.menu.addMenuItem(metaItem);
-
         // --- Text Input ---
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         const textEntry = new St.Entry({
@@ -575,79 +546,20 @@ class AppleTVIndicator extends PanelMenu.Button {
     }
 
     _updateMetadata(r) {
-        const hasData = r && r.title;
-        this._metaBox.visible = !!hasData;
-        if (!hasData) {
-            this._lastTitle = null;
+        if (!r || !r.title) {
             this._updateActiveAppBorder(null);
             return;
         }
 
-        this._metaTitle.text = r.title || '';
-        this._metaTitle.visible = !!r.title;
-
-        this._metaArtist.text = r.artist || '';
-        this._metaArtist.visible = !!r.artist;
-
-        this._metaAlbum.text = r.album || '';
-        this._metaAlbum.visible = !!r.album;
-
-        this._metaSeries.text = r.series || '';
-        this._metaSeries.visible = !!r.series;
-
-        this._updatePosition(r.position, r.duration);
-
+        // Log metadata changes (excluding playback position/duration)
         if (r.title !== this._lastTitle) {
             this._lastTitle = r.title;
-            this._fetchArtwork();
+            log(`[AppleTV] Metadata: title="${r.title || ''}", artist="${r.artist || ''}", album="${r.album || ''}", series="${r.series || ''}", device_state="${r.device_state || ''}", app_id="${r.app_id || ''}"`);
         }
 
         // Issue 6: highlight the button for the currently active app
         this._updateActiveAppBorder(r.app_id ?? null);
     }
-
-    _updatePosition(pos, dur) {
-        if (pos && dur) {
-            this._positionLabel.text = `${this._formatTime(pos)} / ${this._formatTime(dur)}`;
-            this._positionLabel.visible = true;
-        } else {
-            this._positionLabel.visible = false;
-        }
-    }
-
-    _formatTime(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = Math.floor(seconds % 60);
-        const pad = n => n.toString().padStart(2, '0');
-
-        if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
-        return `${m}:${pad(s)}`;
-    }
-
-    async _fetchArtwork() {
-        if (!this._selectedId) {
-             this._artwork.gicon = null;
-             this._artwork.visible = false;
-             return;
-        }
-        try {
-            const [stdout] = await this._send('get_artwork', this._selectedId);
-            const res = JSON.parse(stdout);
-            if (res.artwork_path) {
-                const file = Gio.File.new_for_path(res.artwork_path);
-                this._artwork.gicon = new Gio.FileIcon({ file });
-                this._artwork.visible = true;
-            } else {
-                this._artwork.gicon = null;
-                this._artwork.visible = false;
-            }
-        } catch(e) {
-            this._artwork.gicon = null;
-            this._artwork.visible = false;
-        }
-    }
-
 
     // ── Daemon lifecycle ───────────────────────────────────────────────────
 

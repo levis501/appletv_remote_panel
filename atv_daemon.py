@@ -197,10 +197,16 @@ class ATVDaemon:
 
         if cmd == "scan_devices":
             import pyatv as _pyatv
+            from pyatv.const import OperatingSystem
             loop = asyncio.get_running_loop()
             found = await _pyatv.scan(loop, timeout=5)
             cfg = load_config()
             known_ids = {d["id"] for d in cfg.get("devices", [])}
+            # Filter to only include Apple TVs (tvOS devices)
+            apple_tvs = [
+                a for a in found
+                if a.device_info and a.device_info.operating_system == OperatingSystem.TvOS
+            ]
             return {
                 "devices": [
                     {
@@ -209,7 +215,7 @@ class ATVDaemon:
                         "address": str(a.address),
                         "known":   a.identifier in known_ids,
                     }
-                    for a in found
+                    for a in apple_tvs
                 ]
             }
 

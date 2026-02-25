@@ -183,7 +183,7 @@ class DeviceDialog extends ModalDialog.ModalDialog {
     
     async _pairProtocol(deviceId, address, protocol, creds) {
         return new Promise((resolve, reject) => {
-            this._setStatus(_(`Connecting to ${protocol.toUpperCase()}...`));
+            this._setStatus(_('Connecting...'));
             this._indicator._send('pair_begin', deviceId, address, protocol)
                 .then(([stdout]) => {
                     const res = JSON.parse(stdout);
@@ -221,7 +221,7 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         this._deviceList.destroy_all_children();
         
         const label = new St.Label({
-            text: _(`Enter PIN shown on Apple TV for ${protocol.toUpperCase()}:\n(If no PIN appears, click Skip)`),
+            text: _('Enter PIN shown on Apple TV:\n(If no PIN appears, click Skip)'),
             style_class: 'appletv-device-name'
         });
         this._deviceList.add_child(label);
@@ -268,8 +268,7 @@ class DeviceDialog extends ModalDialog.ModalDialog {
             await this._indicator._send('select_device', deviceId);
             this._indicator._selectDevice(deviceId);
             this._selectedId = deviceId;
-            await this._loadDevices();
-            this._setStatus(_('Device selected.'));
+            this.close();
         } catch (e) {
             this._setStatus(`Error: ${e}`);
         }

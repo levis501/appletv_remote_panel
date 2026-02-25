@@ -50,8 +50,14 @@ def print_device_list(cfg):
 
 async def discover_devices():
     import pyatv
+    from pyatv.const import OperatingSystem
     print("Scanning network for Apple TVs (5 second timeout)...")
-    return await pyatv.scan(asyncio.get_event_loop(), timeout=5)
+    found = await pyatv.scan(asyncio.get_event_loop(), timeout=5)
+    # Filter to only include Apple TVs (tvOS devices)
+    return [
+        a for a in found
+        if a.device_info and a.device_info.operating_system == OperatingSystem.TvOS
+    ]
 
 
 async def pair_protocol(atv_config, protocol_name):
