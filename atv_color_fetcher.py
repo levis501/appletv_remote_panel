@@ -264,11 +264,15 @@ def fetch_colors_for_app(app):
 
     url = search_icon_url(name, app_id)
     if not url:
-        _log('  No icon URL found')
+        if app_id.startswith('com.apple.'):
+            _log(f'  No icon URL found for system app {name!r} ({app_id})')
+        else:
+            _log(f'  No icon URL found for {name!r} ({app_id})')
         return None
 
     data = download_image(url)
     if not data:
+        _log(f'  Icon download failed for {name!r} ({app_id})')
         return None
 
     save_icon(app_id, data)
@@ -292,6 +296,8 @@ def main():
         _log('No apps found in config — nothing to do')
         return
 
+    _log(f'Loaded {len(favorites)} favorites and {len(apps)} total apps')
+    
     fav_ids = {a.get('id') for a in favorites if isinstance(a, dict) and a.get('id')}
     non_favorites = [
         a for a in apps
@@ -299,18 +305,50 @@ def main():
     ]
     non_favorites.sort(key=lambda a: (a.get('name', '').lower(), a.get('id', '')))
     ordered_apps = favorites + non_favorites
+    
+    _log(f'Checking {len(ordered_apps)} apps for icon/color entries:')
 
     # Fetch an app if:
-    #   - it has no colour entry yet (None or missing), OR
+    #   - it has no colour entry yet (missing key), OR
     #   - it has colours but is missing its icon file (e.g. fetcher ran before icon-saving was added)
     # Apple system apps (com.apple.*) never have Store icons, so skip icon check for them.
+    # If a system app has a null entry, it means we already tried and failed — don't retry.
     def needs_fetch(app):
         entry = colors.get(app['id'])
+        app_name = app.get('name', '')
+        app_id = app['id']
+        
+        if app_id.startswith('com.apple.'):
+            # System app logic
+            if entry is None and app_id in colors:
+                # Explicitly stored as None = we tried and failed
+                _log(f'  {app_name!r} ({app_id}): skipping (system app, icon fetch previously failed)')
+                return False
+            elif entry is None:
+                # Not in colors dict yet = first time trying
+                _log(f'  {app_name!r} ({app_id}): needs fetch (system app, no prior attempt)')
+                return True
+            elif isinstance(entry, dict):
+                # Has colors
+                _log(f'  {app_name!r} ({app_id}): skipping (system app with colours)')
+                return False
+            else:
+                # Shouldn't happen, but be safe
+                _log(f'  {app_name!r} ({app_id}): needs fetch (unknown entry state)')
+                return True
+        
+        # Third-party app logic
         if not isinstance(entry, dict):
+            _log(f'  {app_name!r} ({app_id}): needs fetch (no colour entry yet)')
             return True   # no colours yet — always try
-        if app['id'].startswith('com.apple.'):
-            return False  # system app: colours done, no icon expected
-        return not (ICONS_DIR / f"{app['id']}.png").exists()
+        
+        # Has colors: check if icon file exists
+        icon_exists = (ICONS_DIR / f"{app_id}.png").exists()
+        if not icon_exists:
+            _log(f'  {app_name!r} ({app_id}): needs fetch (icon file missing)')
+        else:
+            _log(f'  {app_name!r} ({app_id}): skipping (icon and colours present)')
+        return not icon_exists
 
     to_fetch = [a for a in ordered_apps if needs_fetch(a)]
 
@@ -318,7 +356,7 @@ def main():
         _log('All apps already processed — nothing to do')
         return
 
-    _log(f'{len(to_fetch)} app(s) to process')
+    _log(f'{len(to_fetch)} app(s) to fetch')
 
     for app in to_fetch:
         result = fetch_colors_for_app(app)

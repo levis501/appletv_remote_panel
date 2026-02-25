@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <!-- White background -->
+  <rect width="512" height="512" fill="#FFFFFF" rx="90"/>
+  
+  <!-- Multicolor flower petals (Photos app icon style) -->
+  <g transform="translate(256,256)">
+    <!-- Red petal (top) -->
+    <ellipse cx="0" cy="-60" rx="50" ry="80" fill="#FF3B30" opacity="0.9"/>
+    
+    <!-- Orange petal (top-right) -->
+    <ellipse cx="52" cy="-30" rx="50" ry="80" fill="#FF9500" opacity="0.9" transform="rotate(72 52 -30)"/>
+    
+    <!-- Yellow petal (bottom-right) -->
+    <ellipse cx="32" cy="50" rx="50" ry="80" fill="#FFCC00" opacity="0.9" transform="rotate(144 32 50)"/>
+    
+    <!-- Green petal (bottom-left) -->
+    <ellipse cx="-32" cy="50" rx="50" ry="80" fill="#34C759" opacity="0.9" transform="rotate(216 -32 50)"/>
+    
+    <!-- Blue petal (top-left) -->
+    <ellipse cx="-52" cy="-30" rx="50" ry="80" fill="#007AFF" opacity="0.9" transform="rotate(288 -52 -30)"/>
+    
+    <!-- Purple center petals -->
+    <ellipse cx="0" cy="-35" rx="35" ry="55" fill="#AF52DE" opacity="0.9"/>
+    <ellipse cx="30" cy="-18" rx="35" ry="55" fill="#AF52DE" opacity="0.9" transform="rotate(72 30 -18)"/>
+    <ellipse cx="19" cy="30" rx="35" ry="55" fill="#AF52DE" opacity="0.9" transform="rotate(144 19 30)"/>
+    <ellipse cx="-19" cy="30" rx="35" ry="55" fill="#AF52DE" opacity="0.9" transform="rotate(216 -19 30)"/>
+    <ellipse cx="-30" cy="-18" rx="35" ry="55" fill="#AF52DE" opacity="0.9" transform="rotate(288 -30 -18)"/>
+    
+    <!-- Center circle -->
+    <circle cx="0" cy="0" r="30" fill="#FFFFFF"/>
+  </g>
+</svg>
