@@ -79,7 +79,7 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         this._deviceList.destroy_all_children();
         if (devices.length === 0) {
             this._deviceList.add_child(new St.Label({
-                text: _('No devices configured. Run atv_setup.py to add devices.'),
+                text: _('No devices configured. Click Scan to find devices.'),
                 style_class: 'appletv-device-none-label',
             }));
             return;
@@ -109,10 +109,13 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         row.add_child(nameLabel);
 
         if (device.known === false) {
-            row.add_child(new St.Label({
-                text: _('(run atv_setup.py to add)'),
-                style_class: 'appletv-device-note',
-            }));
+            const setupBtn = new St.Button({
+                label: _('Setup'),
+                style_class: 'appletv-device-btn',
+                can_focus: true,
+            });
+            setupBtn.connect('clicked', () => this._setupDevice(device.id, device.address, device.name));
+            row.add_child(setupBtn);
         } else {
             const selectBtn = new St.Button({
                 label: _('Select'),
@@ -132,6 +135,132 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         }
 
         return row;
+    }
+
+    async _setupDevice(deviceId, address, name) {
+        if (this._scanning) return;
+        this._scanning = true;
+        this._setStatus(_('Starting setup...'));
+        const creds = {};
+        
+        let mrpSuccess = false;
+        try {
+            await this._pairProtocol(deviceId, address, 'mrp', creds);
+            mrpSuccess = true;
+        } catch (e) {
+            log(`AppleTV-Remote MRP pairing failed: ${e}`);
+        }
+        
+        let companionSuccess = false;
+        try {
+            await this._pairProtocol(deviceId, address, 'companion', creds);
+            companionSuccess = true;
+        } catch (e) {
+            log(`AppleTV-Remote Companion pairing failed: ${e}`);
+        }
+        
+        this._restoreButtons();
+        this._scanning = false;
+        
+        if (!mrpSuccess && !companionSuccess) {
+            this._setStatus(_('Setup failed for both protocols.'));
+            await this._loadDevices();
+            return;
+        }
+        
+        try {
+            await this._indicator._send('pair_save', deviceId, address, name, creds);
+            this._setStatus(_('Setup complete.'));
+            await this._loadDevices();
+            if (!this._selectedId) {
+                this._selectDevice(deviceId);
+            }
+        } catch (e) {
+            this._setStatus(`Save error: ${e}`);
+            await this._loadDevices();
+        }
+    }
+    
+    async _pairProtocol(deviceId, address, protocol, creds) {
+        return new Promise((resolve, reject) => {
+            this._setStatus(_(`Connecting to ${protocol.toUpperCase()}...`));
+            this._indicator._send('pair_begin', deviceId, address, protocol)
+                .then(([stdout]) => {
+                    const res = JSON.parse(stdout);
+                    if (res.status === 'waiting_for_pin') {
+                        this._promptPin(protocol, async (pin) => {
+                            if (!pin) {
+                                reject(new Error('PIN cancelled'));
+                                return;
+                            }
+                            this._setStatus(_('Verifying PIN...'));
+                            try {
+                                const [pinStdout] = await this._indicator._send('pair_pin', deviceId, pin);
+                                const pinRes = JSON.parse(pinStdout);
+                                if (pinRes.credentials) {
+                                    creds[protocol] = pinRes.credentials;
+                                    resolve();
+                                } else {
+                                    reject(new Error('No credentials returned'));
+                                }
+                            } catch(e) {
+                                reject(e);
+                            }
+                        }, () => {
+                            reject(new Error('PIN cancelled'));
+                        });
+                    } else {
+                        reject(new Error('Unexpected pair_begin response'));
+                    }
+                })
+                .catch(reject);
+        });
+    }
+
+    _promptPin(protocol, onSubmit, onCancel) {
+        this._deviceList.destroy_all_children();
+        
+        const label = new St.Label({
+            text: _(`Enter PIN shown on Apple TV for ${protocol.toUpperCase()}:\n(If no PIN appears, click Skip)`),
+            style_class: 'appletv-device-name'
+        });
+        this._deviceList.add_child(label);
+        
+        const pinEntry = new St.Entry({
+            hint_text: '1234',
+            can_focus: true,
+            style_class: 'appletv-text-entry'
+        });
+        this._deviceList.add_child(pinEntry);
+        
+        this.setButtons([
+            {
+                label: _('Skip'),
+                action: () => onCancel(),
+                key: Clutter.KEY_Escape,
+            },
+            {
+                label: _('Submit'),
+                action: () => onSubmit(pinEntry.get_text()),
+                default: true,
+            },
+        ]);
+        
+        pinEntry.clutter_text.grab_key_focus();
+    }
+
+    _restoreButtons() {
+        this.setButtons([
+            {
+                label: _('Scan'),
+                action: () => this._scanDevices(),
+            },
+            {
+                label: _('Close'),
+                action: () => this.close(),
+                key: Clutter.KEY_Escape,
+            },
+        ]);
     }
 
     async _selectDevice(deviceId) {

@@ -337,15 +337,16 @@
 
 .appletv-quick-app-btn.appletv-app-chooser-btn {
     border-color: transparent;
-    width: 72px;
-    height: 56px;
-    background-color: rgba(0, 0, 0, 0.7);
+    width: 66px !important;
+    height: 50px !important;
+    background-color: #333333 !important;
+    background-image: none !important;
 }
 
 .appletv-quick-app-btn.appletv-app-chooser-btn:hover {
-    background-color: rgba(0, 0, 0, 0.85);
+    background-color: #444444 !important;
 }
 
 .appletv-quick-app-btn.appletv-app-chooser-btn.appletv-app-active {
-    border: 2px solid #00ff00;
+    border: 2px solid #00ff00 !important;
 }

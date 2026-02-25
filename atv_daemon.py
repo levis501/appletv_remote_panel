@@ -213,6 +213,100 @@ class ATVDaemon:
                 ]
             }
 
+        if cmd == "pair_begin":
+            if len(args) < 3:
+                raise ValueError("pair_begin requires device_id, address, protocol")
+            import pyatv
+            from pyatv.const import Protocol
+            loop = asyncio.get_running_loop()
+            device_id, address, proto_name = args[0], args[1], args[2]
+            
+            atvs = await pyatv.scan(loop, hosts=[address], timeout=5)
+            if not atvs:
+                atvs = await pyatv.scan(loop, identifier=device_id, timeout=5)
+            if not atvs:
+                raise ValueError("Device not found")
+                
+            config = atvs[0]
+            proto_map = {
+                "mrp": Protocol.MRP,
+                "companion": Protocol.Companion,
+                "airplay": Protocol.AirPlay,
+            }
+            if proto_name not in proto_map:
+                raise ValueError("Unknown protocol")
+                
+            pairing = await pyatv.pair(config, proto_map[proto_name], loop)
+            await pairing.begin()
+            
+            if not hasattr(self, "_active_pairings"):
+                self._active_pairings = {}
+            self._active_pairings[device_id] = (pairing, config)
+            
+            return {"status": "waiting_for_pin"}
+
+        if cmd == "pair_pin":
+            if len(args) < 2:
+                raise ValueError("pair_pin requires device_id and pin")
+            device_id, pin_str = args[0], args[1]
+            
+            if not hasattr(self, "_active_pairings") or device_id not in self._active_pairings:
+                raise ValueError("No active pairing session for device")
+                
+            pairing, config = self._active_pairings[device_id]
+            if not str(pin_str).isdigit():
+                await pairing.close()
+                del self._active_pairings[device_id]
+                raise ValueError("Invalid PIN")
+                
+            pairing.pin(int(pin_str))
+            await pairing.finish()
+            
+            if pairing.has_paired:
+                cred = str(pairing.service.credentials)
+                await pairing.close()
+                del self._active_pairings[device_id]
+                return {"credentials": cred, "name": config.name}
+            else:
+                await pairing.close()
+                del self._active_pairings[device_id]
+                raise ValueError("Pairing failed (wrong PIN?)")
+
+        if cmd == "pair_save":
+            if len(args) < 4:
+                raise ValueError("pair_save requires device_id, address, name, credentials_dict")
+            device_id, address, name, creds_dict = args[0], args[1], args[2], args[3]
+            
+            cfg = load_config()
+            existing = next((d for d in cfg.get("devices", []) if d["id"] == device_id), None)
+            
+            entry = {
+                "name": name,
+                "id": device_id,
+                "address": address,
+            }
+            if existing and "config" in existing:
+                entry["config"] = existing["config"]
+                
+            if "mrp" in creds_dict:
+                entry["credentials_mrp"] = creds_dict["mrp"]
+            if "companion" in creds_dict:
+                entry["credentials_companion"] = creds_dict["companion"]
+                
+            if existing:
+                idx = cfg["devices"].index(existing)
+                cfg["devices"][idx] = entry
+            else:
+                if "devices" not in cfg:
+                    cfg["devices"] = []
+                cfg["devices"].append(entry)
+                
+            if cfg.get("selected") is None:
+                cfg["selected"] = device_id
+                
+            save_config(cfg)
+            return {"status": "saved"}
+
         # ── Commands that require a live connection ────────────────────────────
 
         if not args:
