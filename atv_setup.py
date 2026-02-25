@@ -41,7 +41,7 @@ def print_device_list(cfg):
     if not devices:
         print("  (no devices configured)")
         return
-    for i, d in enumerate(devices):
+    for i, d in enumerate(devices, 1):
         marker = "  <-- selected" if d["id"] == cfg.get("selected") else ""
         has_mrp  = "mrp"         if "credentials_mrp"       in d else "NO MRP"
         has_comp = "+ companion"  if "credentials_companion" in d else ""
@@ -115,7 +115,7 @@ async def cmd_add_devices(cfg):
     configured_ids = {d["id"] for d in cfg.get("devices", [])}
 
     print(f"\nFound {len(atvs)} device(s):\n")
-    for i, atv in enumerate(atvs):
+    for i, atv in enumerate(atvs, 1):
         info    = atv.device_info
         model   = str(info.model_str) if info else "Unknown"
         already = "  [already configured]" if atv.identifier in configured_ids else ""
@@ -132,7 +132,7 @@ async def cmd_add_devices(cfg):
         chosen = atvs
     else:
         try:
-            chosen = [atvs[int(selection)]]
+            chosen = [atvs[int(selection) - 1]]
         except (ValueError, IndexError):
             print("Invalid selection.")
             return
@@ -209,7 +209,7 @@ def cmd_remove_device(cfg):
         return
 
     try:
-        idx = int(raw)
+        idx = int(raw) - 1
     except ValueError:
         print("Invalid selection.")
         return
