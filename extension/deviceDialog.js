@@ -111,13 +111,16 @@ class DeviceDialog extends ModalDialog.ModalDialog {
             setupBtn.connect('clicked', () => this._setupDevice(device.id, device.address, device.name));
             row.add_child(setupBtn);
         } else {
-            const selectBtn = new St.Button({
-                label: _('Select'),
-                style_class: 'appletv-device-btn',
-                can_focus: true,
-            });
-            selectBtn.connect('clicked', () => this._selectDevice(device.id));
-            row.add_child(selectBtn);
+            // Only show Select button if this device is not currently selected
+            if (device.id !== this._selectedId) {
+                const selectBtn = new St.Button({
+                    label: _('Select'),
+                    style_class: 'appletv-device-btn',
+                    can_focus: true,
+                });
+                selectBtn.connect('clicked', () => this._selectDevice(device.id));
+                row.add_child(selectBtn);
+            }
 
             const removeBtn = new St.Button({
                 label: _('Remove'),
