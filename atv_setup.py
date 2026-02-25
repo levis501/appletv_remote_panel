@@ -17,6 +17,9 @@ import sys
 CONFIG_DIR  = os.path.expanduser("~/.config/appletv-remote")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "devices.json")
 
+# Check if MRP pairing should be attempted (default: true)
+ATTEMPT_MRP = os.environ.get("ATTEMPT_MRP", "true").lower() == "true"
+
 
 def load_config():
     if not os.path.exists(CONFIG_PATH):
@@ -155,27 +158,37 @@ async def cmd_add_devices(cfg):
         if existing and "config" in existing:
             entry["config"] = existing["config"]
 
-        # Step 1: MRP — required for all remote control and metadata
-        print("\nStep 1/2: MRP pairing (required for remote control and metadata)")
-        mrp_creds = await pair_protocol(atv_config, "mrp")
-        if mrp_creds:
-            entry["credentials_mrp"] = mrp_creds
-        else:
-            print("  WARNING: MRP pairing failed.")
-            print("  All remote control commands and metadata polling require MRP.")
-            print("  Possible causes:")
-            print("    - Wrong PIN entered")
-            print("    - Apple TV rejected the pairing request (try re-running setup)")
-            print("    - The device may have timed out waiting for PIN entry")
-            print("    - Very old tvOS versions may not support MRP")
-            print("  This device will not function correctly without MRP credentials.")
+        if ATTEMPT_MRP:
+            # Step 1: MRP — required for all remote control and metadata
+            print("\nStep 1/2: MRP pairing (required for remote control and metadata)")
+            mrp_creds = await pair_protocol(atv_config, "mrp")
+            if mrp_creds:
+                entry["credentials_mrp"] = mrp_creds
+            else:
+                print("  WARNING: MRP pairing failed.")
+                print("  All remote control commands and metadata polling require MRP.")
+                print("  Possible causes:")
+                print("    - Wrong PIN entered")
+                print("    - Apple TV rejected the pairing request (try re-running setup)")
+                print("    - The device may have timed out waiting for PIN entry")
+                print("    - Very old tvOS versions may not support MRP")
+                print("  This device will not function correctly without MRP credentials.")
 
-        # Step 2: Companion — optional but recommended for tvOS 15+
-        ans = input("\nStep 2/2: Pair Companion protocol? (recommended for tvOS 15+) [Y/n]: ")
-        if ans.strip().lower() in ("y", "yes", ""):
+            # Step 2: Companion — optional but recommended for tvOS 15+
+            ans = input("\nStep 2/2: Pair Companion protocol? (recommended for tvOS 15+) [Y/n]: ")
+            if ans.strip().lower() in ("y", "yes", ""):
+                companion_creds = await pair_protocol(atv_config, "companion")
+                if companion_creds:
+                    entry["credentials_companion"] = companion_creds
+        else:
+            # Skip MRP, automatically attempt Companion only
+            print("\nAttempting Companion protocol pairing (MRP pairing skipped)...")
             companion_creds = await pair_protocol(atv_config, "companion")
             if companion_creds:
                 entry["credentials_companion"] = companion_creds
+            else:
+                print("  WARNING: Companion pairing failed.")
+                print("  Without credentials, the device will not function.")
 
         # Update existing entry in-place or append
         if existing:

@@ -162,6 +162,16 @@ if [ -f "${HELPER_DIR}/devices.json" ]; then
         _has_devices=true
     fi
 fi
+
+# Check for --mrp argument
+_attempt_mrp=false
+for arg in "$@"; do
+    if [[ "$arg" == "--mrp" ]]; then
+        _attempt_mrp=true
+        break
+    fi
+done
+
 if ! $_has_devices; then
     read -r -p "Would you like to configure devices now? [Y/n]: " _setup_answer || _setup_answer=""
     _setup_answer="${_setup_answer:-Y}"
@@ -170,7 +180,7 @@ if ! $_has_devices; then
         echo "Scanning for available devices..."
         "${HELPER_DIR}/atv_control.py" scan || true
         echo ""
-        "${HELPER_DIR}/atv_setup.py" || true
+        ATTEMPT_MRP="${_attempt_mrp}" "${HELPER_DIR}/atv_setup.py" || true
         echo ""
     fi
 fi
