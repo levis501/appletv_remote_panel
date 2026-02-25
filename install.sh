@@ -153,7 +153,7 @@ PYEOF
 fi
 
 # ── Optional: configure devices now ──────────────────────────────────────────
-# Default to N when devices are already configured, Y on a fresh install.
+# Skip if devices are already configured; only prompt on a fresh install.
 _has_devices=false
 if [ -f "${HELPER_DIR}/devices.json" ]; then
     if "${VENV_PYTHON}" -c \
@@ -162,19 +162,14 @@ if [ -f "${HELPER_DIR}/devices.json" ]; then
         _has_devices=true
     fi
 fi
-if $_has_devices; then
-    _setup_prompt="Would you like to configure devices now? [y/N]: "
-    _setup_default="N"
-else
-    _setup_prompt="Would you like to configure devices now? [Y/n]: "
-    _setup_default="Y"
-fi
-read -r -p "${_setup_prompt}" _setup_answer || _setup_answer=""
-_setup_answer="${_setup_answer:-${_setup_default}}"
-if [[ "${_setup_answer,,}" =~ ^(y|yes)$ ]]; then
-    echo ""
-    "${HELPER_DIR}/atv_setup.py" || true
-    echo ""
+if ! $_has_devices; then
+    read -r -p "Would you like to configure devices now? [Y/n]: " _setup_answer || _setup_answer=""
+    _setup_answer="${_setup_answer:-Y}"
+    if [[ "${_setup_answer,,}" =~ ^(y|yes)$ ]]; then
+        echo ""
+        "${HELPER_DIR}/atv_setup.py" || true
+        echo ""
+    fi
 fi
 
 echo "Next steps:"
