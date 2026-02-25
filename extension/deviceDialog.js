@@ -95,12 +95,6 @@ class DeviceDialog extends ModalDialog.ModalDialog {
             x_expand: true,
         });
 
-        const dot = new St.Label({
-            text: device.id === this._selectedId ? '●' : '○',
-            style_class: 'appletv-device-dot',
-        });
-        row.add_child(dot);
-
         const nameLabel = new St.Label({
             text: device.name || device.id,
             style_class: `appletv-device-name${device.known === false ? ' appletv-device-unregistered' : ''}`,
