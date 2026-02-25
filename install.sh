@@ -65,10 +65,10 @@ echo ""
 echo "[4/6] Installing helper scripts..."
 
 # Copy scripts
-cp "${SCRIPT_DIR}/atv_control.py"       "${HELPER_DIR}/atv_control.py"
-cp "${SCRIPT_DIR}/atv_setup.py"         "${HELPER_DIR}/atv_setup.py"
-cp "${SCRIPT_DIR}/atv_daemon.py"        "${HELPER_DIR}/atv_daemon.py"
-cp "${SCRIPT_DIR}/atv_color_fetcher.py" "${HELPER_DIR}/atv_color_fetcher.py"
+cp "${SCRIPT_DIR}/scripts/atv_control.py"       "${HELPER_DIR}/atv_control.py"
+cp "${SCRIPT_DIR}/scripts/atv_setup.py"         "${HELPER_DIR}/atv_setup.py"
+cp "${SCRIPT_DIR}/scripts/atv_daemon.py"        "${HELPER_DIR}/atv_daemon.py"
+cp "${SCRIPT_DIR}/scripts/atv_color_fetcher.py" "${HELPER_DIR}/atv_color_fetcher.py"
 
 # Rewrite shebang to use the venv's Python so the script is self-contained
 sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_control.py"
