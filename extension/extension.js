@@ -888,4 +888,22 @@ export default class AppleTVRemoteExtension extends Extension {
         this._startColorFetcher();
         return apps;
     }
+
+    // ── Public API for other extensions ────────────────────────────────────
+
+    /** Returns the currently selected device ID, or null if none. */
+    getSelectedDevice() {
+        return this._indicator?._selectedId ?? null;
+    }
+
+    /**
+     * Send a command to the daemon via this extension's connection.
+     * @param {string}    command  Daemon command name (e.g. 'play_pause')
+     * @param {...string} args     Extra arguments forwarded to the daemon
+     * @returns {Promise}
+     */
+    sendCommand(command, ...args) {
+        return this._indicator?._send(command, ...args)
+            ?? Promise.reject(new Error('AppleTV Remote not ready'));
+    }
 }

@@ -18,7 +18,7 @@ echo "=== Apple TV Remote Panel — Installation ==="
 echo ""
 
 # ── 1. Check python3 ──────────────────────────────────────────────────────────
-echo "[1/6] Checking Python..."
+echo "[1/7] Checking Python..."
 
 if ! command -v python3 &>/dev/null; then
     echo "ERROR: python3 not found. Please install Python 3.7+."
@@ -36,14 +36,14 @@ fi
 
 # ── 2. Create config directory ────────────────────────────────────────────────
 echo ""
-echo "[2/6] Creating config directory..."
+echo "[2/7] Creating config directory..."
 mkdir -p "${HELPER_DIR}"
 mkdir -p "${HELPER_DIR}/icons"   # cache dir for downloaded app icons
 echo "  ${HELPER_DIR}"
 
 # ── 3. Python venv + pyatv ────────────────────────────────────────────────────
 echo ""
-echo "[3/6] Setting up Python virtual environment..."
+echo "[3/7] Setting up Python virtual environment..."
 
 if [ ! -d "${PYTHON_VENV}" ]; then
     python3 -m venv "${PYTHON_VENV}"
@@ -62,7 +62,7 @@ echo "  duckduckgo-search and Pillow installed."
 
 # ── 4. Install Python helpers ─────────────────────────────────────────────────
 echo ""
-echo "[4/6] Installing helper scripts..."
+echo "[4/7] Installing helper scripts..."
 
 # Copy scripts
 cp "${SCRIPT_DIR}/scripts/atv_control.py"       "${HELPER_DIR}/atv_control.py"
@@ -88,7 +88,7 @@ echo "  Using Python:           ${VENV_PYTHON}"
 
 # ── 5. Install GNOME extension ────────────────────────────────────────────────
 echo ""
-echo "[5/6] Installing GNOME Shell extension..."
+echo "[5/7] Installing GNOME Shell extension..."
 
 mkdir -p "${EXTENSION_DEST}"
 cp "${EXTENSION_SRC}/metadata.json"   "${EXTENSION_DEST}/metadata.json"
@@ -109,15 +109,34 @@ fi
 
 echo "  Installed to: ${EXTENSION_DEST}"
 
-# ── 6. Enable extension ───────────────────────────────────────────────────────
+# ── 6. Install play/pause indicator extension ─────────────────────────────────
 echo ""
-echo "[6/6] Enabling extension..."
+echo "[6/7] Installing play/pause indicator extension..."
+
+PLAYPAUSE_UUID="appletv-playpause@local"
+PLAYPAUSE_SRC="${SCRIPT_DIR}/extension_playpause"
+PLAYPAUSE_DEST="${HOME}/.local/share/gnome-shell/extensions/${PLAYPAUSE_UUID}"
+
+mkdir -p "${PLAYPAUSE_DEST}"
+cp "${PLAYPAUSE_SRC}/metadata.json"  "${PLAYPAUSE_DEST}/metadata.json"
+cp "${PLAYPAUSE_SRC}/extension.js"   "${PLAYPAUSE_DEST}/extension.js"
+
+echo "  Installed to: ${PLAYPAUSE_DEST}"
+
+# ── 7. Enable extensions ──────────────────────────────────────────────────────
+echo ""
+echo "[7/7] Enabling extensions..."
 
 if command -v gnome-extensions &>/dev/null; then
     if gnome-extensions enable "${EXTENSION_UUID}" 2>/dev/null; then
-        echo "  Extension enabled."
+        echo "  ${EXTENSION_UUID} enabled."
     else
-        echo "  Could not auto-enable (normal on Wayland — see next steps)."
+        echo "  Could not auto-enable ${EXTENSION_UUID} (normal on Wayland — see next steps)."
+    fi
+    if gnome-extensions enable "${PLAYPAUSE_UUID}" 2>/dev/null; then
+        echo "  ${PLAYPAUSE_UUID} enabled."
+    else
+        echo "  Could not auto-enable ${PLAYPAUSE_UUID} (normal on Wayland — see next steps)."
     fi
 else
     echo "  gnome-extensions not found — enable manually (see next steps)."
@@ -192,8 +211,9 @@ echo "  2. If the TV icon isn't visible in the top bar yet:"
 echo "     X11:    press Alt+F2, type 'r', press Enter"
 echo "     Wayland: log out and log back in"
 echo ""
-echo "  3. To manually enable the extension:"
+echo "  3. To manually enable the extensions:"
 echo "     gnome-extensions enable ${EXTENSION_UUID}"
+echo "     gnome-extensions enable ${PLAYPAUSE_UUID}"
 echo "     or open the GNOME Extensions app."
 echo ""
 echo "  4. To debug, watch GNOME Shell logs:"
