@@ -2,6 +2,7 @@ import GObject from 'gi://GObject';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -449,6 +450,10 @@ class MouseIndicator extends PanelMenu.Button {
         this._captured = true;
         // Visual indicator: tint the icon green
         this._icon.set_style('color: #00ff66;');
+        // Hide the cursor — use BLANK cursor shape, not set_pointer_visible which
+        // disrupts Mutter's input routing and is immediately overridden by GNOME
+        // Shell's auto-show-on-motion logic.
+        global.display.set_cursor(Meta.Cursor.BLANK);
     }
 
     _exitCapture() {
@@ -458,6 +463,8 @@ class MouseIndicator extends PanelMenu.Button {
         }
         this._captured = false;
         this._icon.set_style('');
+        // Restore the default cursor shape
+        global.display.set_cursor(Meta.Cursor.DEFAULT);
     }
 
     destroy() {
