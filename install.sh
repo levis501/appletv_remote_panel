@@ -123,6 +123,21 @@ cp "${PLAYPAUSE_SRC}/extension.js"   "${PLAYPAUSE_DEST}/extension.js"
 
 echo "  Installed to: ${PLAYPAUSE_DEST}"
 
+# ── 6b. Install mouse control extension ───────────────────────────────────────
+echo ""
+echo "[6b] Installing mouse control extension..."
+
+MOUSE_UUID="appletv-mouse@local"
+MOUSE_SRC="${SCRIPT_DIR}/extension_mouse"
+MOUSE_DEST="${HOME}/.local/share/gnome-shell/extensions/${MOUSE_UUID}"
+
+mkdir -p "${MOUSE_DEST}"
+cp "${MOUSE_SRC}/metadata.json"  "${MOUSE_DEST}/metadata.json"
+cp "${MOUSE_SRC}/extension.js"   "${MOUSE_DEST}/extension.js"
+cp "${MOUSE_SRC}/stylesheet.css" "${MOUSE_DEST}/stylesheet.css"
+
+echo "  Installed to: ${MOUSE_DEST}"
+
 # ── 7. Enable extensions ──────────────────────────────────────────────────────
 echo ""
 echo "[7/7] Enabling extensions..."
@@ -137,6 +152,11 @@ if command -v gnome-extensions &>/dev/null; then
         echo "  ${PLAYPAUSE_UUID} enabled."
     else
         echo "  Could not auto-enable ${PLAYPAUSE_UUID} (normal on Wayland — see next steps)."
+    fi
+    if gnome-extensions enable "${MOUSE_UUID}" 2>/dev/null; then
+        echo "  ${MOUSE_UUID} enabled."
+    else
+        echo "  Could not auto-enable ${MOUSE_UUID} (normal on Wayland — see next steps)."
     fi
 else
     echo "  gnome-extensions not found — enable manually (see next steps)."
@@ -214,6 +234,7 @@ echo ""
 echo "  3. To manually enable the extensions:"
 echo "     gnome-extensions enable ${EXTENSION_UUID}"
 echo "     gnome-extensions enable ${PLAYPAUSE_UUID}"
+echo "     gnome-extensions enable ${MOUSE_UUID}"
 echo "     or open the GNOME Extensions app."
 echo ""
 echo "  4. To debug, watch GNOME Shell logs:"
