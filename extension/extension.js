@@ -26,9 +26,6 @@ const DEFAULT_FAVORITE_APPS = [
     { id: 'com.apple.TVWatchList',  name: 'TV' },
     { id: 'com.apple.TVMusic',      name: 'Music' },
     { id: 'com.apple.TVSettings',   name: 'Settings' },
-    { id: 'com.google.ios.youtube', name: 'YouTube' },
-    { id: 'com.netflix.Netflix',    name: 'Netflix' },
-    { id: 'com.hulu.HuluTV',        name: 'Hulu' },
 ];
 
 // CSS class to apply for each known app's brand color (defined in stylesheet.css)
