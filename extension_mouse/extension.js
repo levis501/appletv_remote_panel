@@ -8,10 +8,11 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-const DEFAULT_THRESHOLD = 30;   // pixels of accumulated movement before d-pad fire
-const COOLDOWN_MS       = 120;  // minimum ms between d-pad fires
+const DEFAULT_THRESHOLD  = 30;  // pixels of accumulated movement before d-pad fire
+const COOLDOWN_MS        = 120; // minimum ms between d-pad fires
 const SCROLL_COOLDOWN_MS = 300; // minimum ms between volume commands
-const FEEDBACK_MS       = 200;  // ms to highlight active control in info panel
+const FEEDBACK_MS        = 200; // ms to highlight active control in info panel
+const EDGE_MARGIN        = 80;  // px from screen edge that triggers re-center warp
 
 // ── MouseInfoPanel ────────────────────────────────────────────────────────────
 // Floating overlay panel showing the control map and sensitivity slider.
@@ -263,8 +264,8 @@ class MouseControlOverlay extends St.Widget {
         this.set_position(0, 0);
 
         // Motion accumulator state
-        this._lastX = null;
-        this._lastY = null;
+        this._lastX = 0;
+        this._lastY = 0;
         this._accX = 0;
         this._accY = 0;
         this._lastFireTime = 0;
@@ -285,6 +286,21 @@ class MouseControlOverlay extends St.Widget {
 
         // Grab keyboard focus so Escape works
         this.grab_key_focus();
+
+        // Warp cursor to screen center so there is equal movement range in all
+        // directions and _lastX/_lastY start with a valid reference point.
+        const cx = Math.floor(monitor.width  / 2);
+        const cy = Math.floor(monitor.height / 2);
+        this._warpPointer(cx, cy);
+    }
+
+    _warpPointer(x, y) {
+        const seat = Clutter.get_default_backend().get_default_seat();
+        seat.warp_pointer(x, y);
+        // Update last-position reference so the synthetic motion event produced
+        // by the warp computes Δ ≈ 0 and adds nothing to the accumulator.
+        this._lastX = x;
+        this._lastY = y;
     }
 
     _getMainExt() {
@@ -309,13 +325,6 @@ class MouseControlOverlay extends St.Widget {
 
     _onMotion(actor, event) {
         const [x, y] = event.get_coords();
-
-        // Establish reference on first event
-        if (this._lastX === null) {
-            this._lastX = x;
-            this._lastY = y;
-            return Clutter.EVENT_STOP;
-        }
 
         this._accX += x - this._lastX;
         this._accY += y - this._lastY;
@@ -347,6 +356,19 @@ class MouseControlOverlay extends St.Widget {
             this._accX = 0;
             this._accY = 0;
             this._lastFireTime = now;
+        }
+
+        // Re-center if cursor approaches any screen edge. This prevents the OS
+        // edge constraint from creating a direction the user can no longer move
+        // toward. _warpPointer sets _lastX/_lastY so the synthetic motion event
+        // the warp generates computes Δ ≈ 0 (no phantom accumulation).
+        const monitor = Main.layoutManager.primaryMonitor;
+        if (x <= EDGE_MARGIN || x >= monitor.width  - EDGE_MARGIN ||
+            y <= EDGE_MARGIN || y >= monitor.height - EDGE_MARGIN) {
+            this._warpPointer(
+                Math.floor(monitor.width  / 2),
+                Math.floor(monitor.height / 2),
+            );
         }
 
         return Clutter.EVENT_STOP;
