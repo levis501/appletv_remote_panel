@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- body: large circle -->
+  <circle cx="8" cy="10" r="5.5" fill="currentColor"/>
+  <!-- leaf + stem at top -->
+  <path d="M 6.5 5.5 Q 9 2 11.5 4.5 Q 9 3.5 8 5 Z" fill="currentColor"/>
+</svg>

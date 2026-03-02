@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — Install the Apple TV Remote GNOME Shell extension
+# install.sh — Install the Fruit TV Remote GNOME Shell extension
 # Run from the project root: ./install.sh
 
 set -euo pipefail
@@ -14,7 +14,15 @@ HELPER_DIR="${HOME}/.config/appletv-remote"
 PYTHON_VENV="${HELPER_DIR}/venv"
 VENV_PYTHON="${PYTHON_VENV}/bin/python3"
 
-echo "=== Apple TV Remote Panel — Installation ==="
+# ── Parse arguments ────────────────────────────────────────────────────────────
+_attempt_mrp=false
+_install_mouse=false
+for arg in "$@"; do
+    if [[ "$arg" == "--mrp" ]];   then _attempt_mrp=true;    fi
+    if [[ "$arg" == "--mouse" ]]; then _install_mouse=true;  fi
+done
+
+echo "=== Fruit TV Remote Panel — Installation ==="
 echo ""
 
 # ── 1. Check python3 ──────────────────────────────────────────────────────────
@@ -65,25 +73,25 @@ echo ""
 echo "[4/7] Installing helper scripts..."
 
 # Copy scripts
-cp "${SCRIPT_DIR}/scripts/atv_control.py"       "${HELPER_DIR}/atv_control.py"
-cp "${SCRIPT_DIR}/scripts/atv_setup.py"         "${HELPER_DIR}/atv_setup.py"
-cp "${SCRIPT_DIR}/scripts/atv_daemon.py"        "${HELPER_DIR}/atv_daemon.py"
-cp "${SCRIPT_DIR}/scripts/atv_color_fetcher.py" "${HELPER_DIR}/atv_color_fetcher.py"
+cp "${SCRIPT_DIR}/scripts/ftv_control.py"       "${HELPER_DIR}/ftv_control.py"
+cp "${SCRIPT_DIR}/scripts/ftv_setup.py"         "${HELPER_DIR}/ftv_setup.py"
+cp "${SCRIPT_DIR}/scripts/ftv_daemon.py"        "${HELPER_DIR}/ftv_daemon.py"
+cp "${SCRIPT_DIR}/scripts/ftv_color_fetcher.py" "${HELPER_DIR}/ftv_color_fetcher.py"
 
 # Rewrite shebang to use the venv's Python so the script is self-contained
-sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_control.py"
-sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_setup.py"
-sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_daemon.py"
-sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/atv_color_fetcher.py"
-chmod +x "${HELPER_DIR}/atv_control.py"
-chmod +x "${HELPER_DIR}/atv_setup.py"
-chmod +x "${HELPER_DIR}/atv_daemon.py"
-chmod +x "${HELPER_DIR}/atv_color_fetcher.py"
+sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/ftv_control.py"
+sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/ftv_setup.py"
+sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/ftv_daemon.py"
+sed -i "1s|.*|#!${VENV_PYTHON}|" "${HELPER_DIR}/ftv_color_fetcher.py"
+chmod +x "${HELPER_DIR}/ftv_control.py"
+chmod +x "${HELPER_DIR}/ftv_setup.py"
+chmod +x "${HELPER_DIR}/ftv_daemon.py"
+chmod +x "${HELPER_DIR}/ftv_color_fetcher.py"
 
-echo "  atv_control.py       → ${HELPER_DIR}/atv_control.py"
-echo "  atv_setup.py         → ${HELPER_DIR}/atv_setup.py"
-echo "  atv_daemon.py        → ${HELPER_DIR}/atv_daemon.py"
-echo "  atv_color_fetcher.py → ${HELPER_DIR}/atv_color_fetcher.py"
+echo "  ftv_control.py       → ${HELPER_DIR}/ftv_control.py"
+echo "  ftv_setup.py         → ${HELPER_DIR}/ftv_setup.py"
+echo "  ftv_daemon.py        → ${HELPER_DIR}/ftv_daemon.py"
+echo "  ftv_color_fetcher.py → ${HELPER_DIR}/ftv_color_fetcher.py"
 echo "  Using Python:           ${VENV_PYTHON}"
 
 # ── 5. Install GNOME extension ────────────────────────────────────────────────
@@ -206,21 +214,13 @@ if [ -f "${HELPER_DIR}/devices.json" ]; then
     fi
 fi
 
-# Check for --mrp / --mouse arguments
-_attempt_mrp=false
-_install_mouse=false
-for arg in "$@"; do
-    if [[ "$arg" == "--mrp" ]];   then _attempt_mrp=true;    fi
-    if [[ "$arg" == "--mouse" ]]; then _install_mouse=true;  fi
-done
-
 if ! $_has_devices; then
     read -r -p "Would you like to configure devices now? [Y/n]: " _setup_answer || _setup_answer=""
     _setup_answer="${_setup_answer:-Y}"
     if [[ "${_setup_answer,,}" =~ ^(y|yes)$ ]]; then
         echo ""
         echo "Launching device setup..."
-        ATTEMPT_MRP="${_attempt_mrp}" "${HELPER_DIR}/atv_setup.py" --auto-add || true
+        ATTEMPT_MRP="${_attempt_mrp}" "${HELPER_DIR}/ftv_setup.py" --auto-add || true
         echo ""
     fi
 fi
@@ -228,9 +228,9 @@ fi
 echo "Next steps:"
 echo ""
 echo "  1. To add or manage devices at any time:"
-echo "     ${HELPER_DIR}/atv_setup.py"
+echo "     ${HELPER_DIR}/ftv_setup.py"
 echo ""
-echo "  2. If the TV icon isn't visible in the top bar yet:"
+echo "  2. If the fruit icon isn't visible in the top bar yet:"
 echo "     X11:    press Alt+F2, type 'r', press Enter"
 echo "     Wayland: log out and log back in"
 echo ""
@@ -244,4 +244,4 @@ echo "  To include the mouse pointer control extension:"
 echo "     ./install.sh --mouse"
 echo ""
 echo "  4. To debug, watch GNOME Shell logs:"
-echo "     journalctl /usr/bin/gnome-shell -f | grep appletv"
+echo "     journalctl /usr/bin/gnome-shell -f | grep fruittv"

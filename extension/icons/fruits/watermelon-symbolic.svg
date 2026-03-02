@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- watermelon slice: D-shape (semicircle, flat side at bottom) -->
+  <path d="M 1 11 A 8 8 0 0 1 15 11 Z" fill="currentColor"/>
+  <!-- rind stripe along the curved edge (just the outer band shape suggestion) -->
+</svg>

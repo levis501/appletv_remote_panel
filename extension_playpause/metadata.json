@@ -1,7 +1,7 @@
 {
     "uuid": "appletv-playpause@local",
-    "name": "Apple TV Play/Pause",
-    "description": "Quick play/pause toggle for the active Apple TV",
+    "name": "Fruit TV Play/Pause",
+    "description": "Quick play/pause toggle for the active Fruit TV",
     "shell-version": ["45", "46"],
     "version": 1,
     "url": ""

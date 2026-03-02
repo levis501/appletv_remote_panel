@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- kiwi fruit (top view, cross-section): horizontal oval -->
+  <ellipse cx="8" cy="8" rx="7" ry="5.5" fill="currentColor"/>
+  <!-- small bump at one end (stem end) -->
+  <path d="M 13.5 6.5 Q 16 8 13.5 9.5 Q 15 8 13.5 6.5 Z" fill="currentColor"/>
+</svg>

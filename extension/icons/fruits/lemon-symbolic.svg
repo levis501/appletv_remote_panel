@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- body: tall oval -->
+  <ellipse cx="8" cy="9.5" rx="5.5" ry="6" fill="currentColor"/>
+  <!-- top nub -->
+  <path d="M 5.5 4 Q 8 1 10.5 4" fill="currentColor"/>
+</svg>

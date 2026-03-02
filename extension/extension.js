@@ -30,25 +30,32 @@ const DEFAULT_FAVORITE_APPS = [
 
 // CSS class to apply for each known app's brand color (defined in stylesheet.css)
 const APP_COLOR_CLASSES = {
-    'com.apple.TVWatchList':   'appletv-app-color-tv',
-    'com.apple.TVMusic':       'appletv-app-color-music',
-    'com.apple.TVSettings':    'appletv-app-color-settings',
-    'com.google.ios.youtube':  'appletv-app-color-youtube',
-    'com.netflix.Netflix':     'appletv-app-color-netflix',
-    'com.hulu.HuluTV':         'appletv-app-color-hulu',
+    'com.apple.TVWatchList':   'fruittv-app-color-tv',
+    'com.apple.TVMusic':       'fruittv-app-color-music',
+    'com.apple.TVSettings':    'fruittv-app-color-settings',
+    'com.google.ios.youtube':  'fruittv-app-color-youtube',
+    'com.netflix.Netflix':     'fruittv-app-color-netflix',
+    'com.hulu.HuluTV':         'fruittv-app-color-hulu',
 };
 
+// The app ID for the TV app — gets special fruit+TV rendering
+const TV_APP_ID = 'com.apple.TVWatchList';
 
-const AppleTVIndicator = GObject.registerClass(
-class AppleTVIndicator extends PanelMenu.Button {
+
+const FruitTVIndicator = GObject.registerClass(
+class FruitTVIndicator extends PanelMenu.Button {
     _init(extension) {
-        super._init(0.0, 'Apple TV Remote', false);
+        super._init(0.0, 'Fruit TV Remote', false);
         this._extension = extension;
-        const iconFile = Gio.File.new_for_path(`${this._extension.path}/icons/appletv-symbolic.svg`);
-        this.add_child(new St.Icon({
+
+        // Load panel icon from the selected logo fruit SVG
+        const fruit = this._extension.getLogoFruit();
+        const iconFile = Gio.File.new_for_path(`${this._extension.path}/icons/fruits/${fruit}-symbolic.svg`);
+        this._panelIcon = new St.Icon({
             gicon: new Gio.FileIcon({ file: iconFile }),
             style_class: 'system-status-icon',
-        }));
+        });
+        this.add_child(this._panelIcon);
 
         this._powerStates = new Map();
         this._devices = new Map();
@@ -93,6 +100,16 @@ class AppleTVIndicator extends PanelMenu.Button {
         });
     }
 
+    // Update the logo fruit: save setting, update panel icon, refresh TV app button
+    _setLogoFruit(fruitId) {
+        this._extension._saveLogoFruit(fruitId);
+        const iconFile = Gio.File.new_for_path(
+            `${this._extension.path}/icons/fruits/${fruitId}-symbolic.svg`
+        );
+        this._panelIcon.set_gicon(new Gio.FileIcon({ file: iconFile }));
+        this._refreshAppButtons();
+    }
+
     _buildMenu() {
         this.menu.removeAll();
 
@@ -104,7 +121,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         const textEntry = new St.Entry({
             hint_text: _('Type and press Enter...'),
             can_focus: true,
-            style_class: 'appletv-text-entry',
+            style_class: 'fruittv-text-entry',
         });
         const textEntryItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         textEntryItem.add_child(textEntry);
@@ -125,7 +142,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         const remoteHeight = 877;
 
         const remote = new St.Widget({
-            style_class: 'appletv-remote-graphic',
+            style_class: 'fruittv-remote-graphic',
             layout_manager: new Clutter.FixedLayout(),
             reactive: false,
         });
@@ -136,11 +153,11 @@ class AppleTVIndicator extends PanelMenu.Button {
         );
         this._remoteWidget = remote;
 
-        log(`AppleTV-Remote: loading remote graphic ${this._extension.path}/atv_remote.png`);
+        log(`FruitTV-Remote: loading remote graphic ${this._extension.path}/atv_remote.png`);
 
         const addHit = (command, x, y, w, h, className = '') => {
             const btn = new St.Button({
-                style_class: `appletv-hit-btn${className ? ` ${className}` : ''}`,
+                style_class: `fruittv-hit-btn${className ? ` ${className}` : ''}`,
                 can_focus: true,
             });
             remote.add_child(btn);
@@ -172,7 +189,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         };
 
         const light = new St.Widget({
-            style_class: 'appletv-remote-light',
+            style_class: 'fruittv-remote-light',
             reactive: false,
         });
         remote.add_child(light);
@@ -214,7 +231,7 @@ class AppleTVIndicator extends PanelMenu.Button {
 
             { command: 'up',        x: 42,  y: 78,  w: 143, h: 64 },
             { command: 'left',      x: 5,   y: 115, w: 65,  h: 144 },
-            { command: selectCmd,   x: 56,  y: 130, w: 114, h: 111, className: 'appletv-hit-circle' },
+            { command: selectCmd,   x: 56,  y: 130, w: 114, h: 111, className: 'fruittv-hit-circle' },
             { command: 'right',     x: 157, y: 114, w: 67,  h: 144 },
             { command: 'down',      x: 43,  y: 230, w: 144, h: 66 },
 
@@ -235,12 +252,12 @@ class AppleTVIndicator extends PanelMenu.Button {
         }
 
         const bin = new St.Bin({ child: remote, x_align: Clutter.ActorAlign.CENTER });
-        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'appletv-remote-item' });
+        const item = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'fruittv-remote-item' });
         item.add_child(bin);
         this.menu.addMenuItem(item);
     }
 
-    // ── Issue 5: App quick-launch buttons (overlaid inside remote widget) ──
+    // ── App quick-launch buttons (overlaid inside remote widget) ──
 
     _refreshAppButtons() {
         if (!this._remoteWidget) return;
@@ -274,13 +291,17 @@ class AppleTVIndicator extends PanelMenu.Button {
     }
 
     _makeQuickAppButton(app) {
+        // TV app gets special fruit + "TV" rendering
+        if (app.id === TV_APP_ID)
+            return this._makeFruitTVButton(app);
+
         const iconFile = this._extension.getAppIconSync(app);
         const fetchedColors = this._extension.getAppColor(app.id);
         const isLoading = !iconFile && !this._extension.hasAppBeenProcessed(app.id);
 
         // Priority: fetched colors > CSS brand class (only when no icon, not loading, no fetched colors)
         const colorClass = (!iconFile && !fetchedColors && !isLoading) ? (APP_COLOR_CLASSES[app.id] || null) : null;
-        const styleClasses = ['appletv-quick-app-btn', ...(colorClass ? [colorClass] : [])].join(' ');
+        const styleClasses = ['fruittv-quick-app-btn', ...(colorClass ? [colorClass] : [])].join(' ');
 
         const btn = new St.Button({
             style_class: styleClasses,
@@ -289,7 +310,7 @@ class AppleTVIndicator extends PanelMenu.Button {
 
         if (iconFile) {
             // Real icon fills the whole button — no label
-            btn.add_style_class_name('appletv-quick-app-btn-with-icon');
+            btn.add_style_class_name('fruittv-quick-app-btn-with-icon');
             btn.set_style(
                 `background-image: url("${iconFile.get_path()}"); ` +
                 `background-size: ${APP_BTN_W}px ${APP_BTN_H}px; ` +
@@ -304,18 +325,18 @@ class AppleTVIndicator extends PanelMenu.Button {
             );
             btn.set_child(new St.Label({
                 text: app.name,
-                style_class: 'appletv-quick-app-label',
+                style_class: 'fruittv-quick-app-label',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             }));
         } else {
-            // Color fallback (Apple system apps etc.) — centered label
+            // Color fallback — centered label
             if (fetchedColors) {
                 btn.set_style(`background-color: ${fetchedColors.bg};`);
             }
             const label = new St.Label({
                 text: app.name,
-                style_class: 'appletv-quick-app-label',
+                style_class: 'fruittv-quick-app-label',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
@@ -327,7 +348,51 @@ class AppleTVIndicator extends PanelMenu.Button {
 
         btn.connect('button-press-event', () => {
             if (this._selectedId) {
-                log(`[AppleTV] Quick-launching app ${app.name} (${app.id}) (prior app: ${this._currentAppId || 'unknown'})`);
+                log(`[FruitTV] Quick-launching app ${app.name} (${app.id}) (prior app: ${this._currentAppId || 'unknown'})`);
+                this._send('launch_app', this._selectedId, app.id);
+            }
+            return Clutter.EVENT_STOP;
+        });
+
+        return btn;
+    }
+
+    // TV app button: shows logo fruit icon + "TV" text on dark background
+    _makeFruitTVButton(app) {
+        const btn = new St.Button({
+            style_class: 'fruittv-quick-app-btn fruittv-app-color-tv',
+            can_focus: true,
+        });
+
+        const box = new St.BoxLayout({
+            vertical: true,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            x_expand: true,
+            y_expand: true,
+        });
+
+        const fruitPath = `${this._extension.path}/icons/fruits/${this._extension.getLogoFruit()}-symbolic.svg`;
+        const fruitFile = Gio.File.new_for_path(fruitPath);
+        const icon = new St.Icon({
+            gicon: new Gio.FileIcon({ file: fruitFile }),
+            icon_size: 22,
+            style_class: 'fruittv-app-fruit-icon',
+        });
+        box.add_child(icon);
+
+        const label = new St.Label({
+            text: 'TV',
+            style_class: 'fruittv-quick-app-label',
+            x_align: Clutter.ActorAlign.CENTER,
+        });
+        box.add_child(label);
+
+        btn.set_child(box);
+
+        btn.connect('button-press-event', () => {
+            if (this._selectedId) {
+                log(`[FruitTV] Quick-launching TV app (${app.id})`);
                 this._send('launch_app', this._selectedId, app.id);
             }
             return Clutter.EVENT_STOP;
@@ -341,14 +406,14 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._currentAppId = appId;
         for (const [id, btn] of this._appBtnMap) {
             if (id === appId) {
-                btn.add_style_class_name('appletv-app-active');
+                btn.add_style_class_name('fruittv-app-active');
             } else {
-                btn.remove_style_class_name('appletv-app-active');
+                btn.remove_style_class_name('fruittv-app-active');
             }
         }
     }
 
-    // ── Issue 2: Device management dialog ─────────────────────────────────
+    // ── Device management dialog ─────────────────────────────────────────
 
     _openDeviceDialog() {
         const dialog = new DeviceDialog(this, () => {
@@ -358,7 +423,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         dialog.open();
     }
 
-    // ── Device loading (replaces old _refreshDeviceList UI) ───────────────
+    // ── Device loading ───────────────────────────────────────────────────
 
     async _loadDevices() {
         try {
@@ -381,7 +446,7 @@ class AppleTVIndicator extends PanelMenu.Button {
                 this._validateFavorites();
             }
         } catch (e) {
-            log(`AppleTV-Remote _loadDevices error: ${e}`);
+            log(`FruitTV-Remote _loadDevices error: ${e}`);
         }
     }
 
@@ -397,7 +462,7 @@ class AppleTVIndicator extends PanelMenu.Button {
             const favorites = (config.favorites.length > 0 || config.hasFile)
                 ? [...config.favorites]
                 : [...DEFAULT_FAVORITE_APPS];
-            
+
             // Save full app list to enable icon downloading for all apps
             this._extension._saveAppsConfig(favorites, apps);
             this._extension._startColorFetcher();
@@ -415,11 +480,11 @@ class AppleTVIndicator extends PanelMenu.Button {
                 this._refreshAppButtons();
             }
         } catch (e) {
-            log(`[AppleTV] Error validating favorites: ${e}`);
+            log(`[FruitTV] Error validating favorites: ${e}`);
         }
     }
 
-    // ── Shared helpers ─────────────────────────────────────────────────────
+    // ── Shared helpers ──────────────────────────────────────────────────
 
     _setRemoteReady(isReady) {
         if (!this._remoteLight) return;
@@ -446,33 +511,33 @@ class AppleTVIndicator extends PanelMenu.Button {
     }
 
     async _openAppSelector() {
-        log('[AppleTV] App selector button pressed');
+        log('[FruitTV] App selector button pressed');
         if (!this._selectedId) {
-            log('[AppleTV] No device selected');
+            log('[FruitTV] No device selected');
             return;
         }
         const device = this._devices.get(this._selectedId);
         if (!device) {
-            log('[AppleTV] Device not found in map, sending home');
+            log('[FruitTV] Device not found in map, sending home');
             this._send('home', this._selectedId).catch(() => {});
             return;
         }
 
         try {
-            log('[AppleTV] Requesting app list...');
+            log('[FruitTV] Requesting app list...');
             const [stdout] = await this._send('list_apps', this._selectedId);
             const res = JSON.parse(stdout);
             const apps = res.apps || [];
-            log(`[AppleTV] Got ${apps.length} apps`);
+            log(`[FruitTV] Got ${apps.length} apps`);
             if (apps.length === 0) {
-                log('[AppleTV] No apps, sending home');
+                log('[FruitTV] No apps, sending home');
                 this._send('home', this._selectedId).catch(() => {});
                 return;
             }
-            log('[AppleTV] Opening app dialog');
+            log('[FruitTV] Opening app dialog');
             this._openAppDialog(device);
         } catch (e) {
-            log(`[AppleTV] Error getting apps: ${e}, sending home`);
+            log(`[FruitTV] Error getting apps: ${e}, sending home`);
             this._send('home', this._selectedId).catch(() => {});
         }
     }
@@ -553,20 +618,20 @@ class AppleTVIndicator extends PanelMenu.Button {
         // Log metadata changes (excluding playback position/duration)
         if (r.title !== this._lastTitle) {
             this._lastTitle = r.title;
-            log(`[AppleTV] Metadata: title="${r.title || ''}", artist="${r.artist || ''}", album="${r.album || ''}", series="${r.series || ''}", device_state="${r.device_state || ''}", app_id="${r.app_id || ''}"`);
+            log(`[FruitTV] Metadata: title="${r.title || ''}", artist="${r.artist || ''}", album="${r.album || ''}", series="${r.series || ''}", device_state="${r.device_state || ''}", app_id="${r.app_id || ''}"`);
         }
 
         // Issue 6: highlight the button for the currently active app
         this._updateActiveAppBorder(r.app_id ?? null);
     }
 
-    // ── Daemon lifecycle ───────────────────────────────────────────────────
+    // ── Daemon lifecycle ───────────────────────────────────────────────
 
     _ensureDaemon() {
         if (this._daemon && !this._daemon.get_if_exited()) return;
         if (this._daemon) this._cleanupDaemon();
 
-        const daemonPath = `${GLib.get_home_dir()}/.config/appletv-remote/atv_daemon.py`;
+        const daemonPath = `${GLib.get_home_dir()}/.config/appletv-remote/ftv_daemon.py`;
         this._daemon = new Gio.Subprocess({
             argv: [daemonPath],
             flags: Gio.SubprocessFlags.STDIN_PIPE |
@@ -599,7 +664,7 @@ class AppleTVIndicator extends PanelMenu.Button {
                     this._cleanupDaemon();
                 }
             } catch (e) {
-                log(`AppleTV-Remote daemon read error: ${e}`);
+                log(`FruitTV-Remote daemon read error: ${e}`);
             }
         });
     }
@@ -617,7 +682,7 @@ class AppleTVIndicator extends PanelMenu.Button {
                 pending.resolve([JSON.stringify(msg.result), '']);
             }
         } catch (e) {
-            log(`AppleTV-Remote daemon response parse error: ${e}`);
+            log(`FruitTV-Remote daemon response parse error: ${e}`);
         }
     }
 
@@ -632,7 +697,7 @@ class AppleTVIndicator extends PanelMenu.Button {
         this._daemon = null;
     }
 
-    // ── Command dispatch ───────────────────────────────────────────────────
+    // ── Command dispatch ───────────────────────────────────────────────
 
     async _send(command, ...extraArgs) {
         this._ensureDaemon();
@@ -666,20 +731,21 @@ class AppleTVIndicator extends PanelMenu.Button {
 });
 
 
-export default class AppleTVRemoteExtension extends Extension {
+export default class FruitTVRemoteExtension extends Extension {
     enable() {
-        log('AppleTV-Remote: enable()');
+        log('FruitTV-Remote: enable()');
         this._appColors = {};
         this._colorMonitor = null;
+        this._loadLogoFruit();
         this._loadAppColors();
-        this._indicator = new AppleTVIndicator(this);
+        this._indicator = new FruitTVIndicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
         this._watchColorFile();
         this._startColorFetcher();
     }
 
     disable() {
-        log('AppleTV-Remote: disable()');
+        log('FruitTV-Remote: disable()');
         if (this._colorMonitor) {
             this._colorMonitor.cancel();
             this._colorMonitor = null;
@@ -689,16 +755,49 @@ export default class AppleTVRemoteExtension extends Extension {
         this._appColors = {};
     }
 
-    // ── App colour management ──────────────────────────────────────────────
+    // ── Logo fruit setting ─────────────────────────────────────────────
+
+    _settingsPath() {
+        return `${GLib.get_home_dir()}/.config/appletv-remote/settings.json`;
+    }
+
+    _loadLogoFruit() {
+        try {
+            const [ok, bytes] = GLib.file_get_contents(this._settingsPath());
+            if (ok) {
+                const cfg = JSON.parse(new TextDecoder().decode(bytes));
+                if (cfg && typeof cfg.logo_fruit === 'string') {
+                    this._logoFruit = cfg.logo_fruit;
+                    return;
+                }
+            }
+        } catch (_e) {}
+        this._logoFruit = 'lemon';
+    }
+
+    _saveLogoFruit(fruit) {
+        this._logoFruit = fruit;
+        try {
+            const file = Gio.File.new_for_path(this._settingsPath());
+            file.replace_contents(
+                new TextEncoder().encode(JSON.stringify({ logo_fruit: fruit }, null, 2)),
+                null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null
+            );
+        } catch (e) {
+            log(`FruitTV-Remote: failed to save logo fruit setting: ${e}`);
+        }
+    }
+
+    getLogoFruit() {
+        return this._logoFruit || 'lemon';
+    }
+
+    // ── App colour management ──────────────────────────────────────────
 
     _colorsConfigPath() {
         return `${GLib.get_home_dir()}/.config/appletv-remote/app_colors.json`;
     }
 
-    /**
-     * Load app colours from app_colors.json into memory.
-     * Silently keeps existing colours if the file is missing or corrupt.
-     */
     _loadAppColors() {
         try {
             const [ok, bytes] = GLib.file_get_contents(this._colorsConfigPath());
@@ -711,27 +810,14 @@ export default class AppleTVRemoteExtension extends Extension {
         } catch (_e) {}
     }
 
-    /**
-     * Returns {bg, text} colour strings for the given app ID, or null if
-     * no colour has been fetched yet (or the fetch failed).
-     */
     getAppColor(appId) {
         return this._appColors?.[appId] || null;
     }
 
-    /**
-     * Returns true if atv_color_fetcher.py has already attempted to process
-     * this app (whether or not it found a colour).  Returns false when the app
-     * has never been processed — i.e. the icon is still being fetched.
-     */
     hasAppBeenProcessed(appId) {
         return this._appColors != null && appId in this._appColors;
     }
 
-    /**
-     * Watch app_colors.json for changes written by atv_color_fetcher.py and
-     * refresh the quick-launch buttons each time new colours arrive.
-     */
     _watchColorFile() {
         const file = Gio.File.new_for_path(this._colorsConfigPath());
         try {
@@ -741,17 +827,13 @@ export default class AppleTVRemoteExtension extends Extension {
                 this._indicator?._refreshAppButtons();
             });
         } catch (e) {
-            log(`AppleTV-Remote: failed to watch color file: ${e}`);
+            log(`FruitTV-Remote: failed to watch color file: ${e}`);
         }
     }
 
-    /**
-     * Spawn atv_color_fetcher.py in the background.  It exits when done, so
-     * spawning it multiple times is harmless (already-fetched apps are skipped).
-     */
     _startColorFetcher() {
         const venvPython  = `${GLib.get_home_dir()}/.config/appletv-remote/venv/bin/python3`;
-        const fetcherPath = `${GLib.get_home_dir()}/.config/appletv-remote/atv_color_fetcher.py`;
+        const fetcherPath = `${GLib.get_home_dir()}/.config/appletv-remote/ftv_color_fetcher.py`;
         try {
             const fetcher = new Gio.Subprocess({
                 argv: [venvPython, fetcherPath],
@@ -759,11 +841,11 @@ export default class AppleTVRemoteExtension extends Extension {
             });
             fetcher.init(null);
         } catch (e) {
-            log(`AppleTV-Remote: could not start color fetcher: ${e}`);
+            log(`FruitTV-Remote: could not start color fetcher: ${e}`);
         }
     }
 
-    // ── App favorites config ───────────────────────────────────────────────
+    // ── App favorites config ───────────────────────────────────────────
 
     _appsConfigPath() {
         return `${GLib.get_home_dir()}/.config/appletv-remote/apps.json`;
@@ -790,14 +872,10 @@ export default class AppleTVRemoteExtension extends Extension {
                 null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null
             );
         } catch (e) {
-            log(`AppleTV-Remote: failed to save apps config: ${e}`);
+            log(`FruitTV-Remote: failed to save apps config: ${e}`);
         }
     }
 
-    /**
-     * Returns [{id, name}, ...] for the user's favourite apps.
-     * Falls back to DEFAULT_FAVORITE_APPS when no config file exists yet.
-     */
     getFavoriteAppObjects() {
         const { favorites, hasFile } = this._readAppsConfig();
         if (favorites.length > 0) {
@@ -809,18 +887,10 @@ export default class AppleTVRemoteExtension extends Extension {
         return favorites;
     }
 
-    /** Returns an array of favourite app IDs (for AppChooser checkbox state). */
     getFavoriteApps(_deviceId) {
         return this.getFavoriteAppObjects().map(a => a.id);
     }
 
-    /**
-     * Add or remove an app from favourites and persist the change.
-     * @param {string}      _deviceId  Unused — favourites are global across devices.
-     * @param {{id, name}}  app        App object from the device's app list.
-     * @param {boolean}     isFavorite Whether to add (true) or remove (false).
-     * @returns {boolean}  True if successful, false if limit reached.
-     */
     setAppFavorite(_deviceId, app, isFavorite) {
         const config = this._readAppsConfig();
         const favorites = (config.favorites.length > 0 || config.hasFile)
@@ -829,7 +899,7 @@ export default class AppleTVRemoteExtension extends Extension {
         const idx = favorites.findIndex(a => a.id === app.id);
         if (isFavorite && idx === -1) {
             if (favorites.length >= 15) {
-                Main.notify('Apple TV Remote', 'Maximum of 15 favorite apps reached');
+                Main.notify('Fruit TV Remote', 'Maximum of 15 favorite apps reached');
                 return false;
             }
             favorites.push({ id: app.id, name: app.name });
@@ -842,17 +912,12 @@ export default class AppleTVRemoteExtension extends Extension {
         return true;
     }
 
-    // ── App icon resolution ────────────────────────────────────────────────
+    // ── App icon resolution ────────────────────────────────────────────
 
-    /**
-     * Synchronously check for a bundled or cached icon for the given app.
-     * Priority:
-     *   1. extension/icons/apps/{bundle_id}.png   (bundled with extension)
-     *   2. extension/icons/apps/{name.lower()}.png
-     *   3. ~/.config/appletv-remote/icons/{bundle_id}.png  (downloaded/cached)
-     * Returns a Gio.File if found, null otherwise.
-     */
     getAppIconSync(app) {
+        // TV app uses fruit+TV rendering — skip icon file lookup
+        if (app.id === TV_APP_ID) return null;
+
         const iconDir  = `${this.path}/icons/apps`;
         const cacheDir = `${GLib.get_home_dir()}/.config/appletv-remote/icons`;
 
@@ -867,7 +932,6 @@ export default class AppleTVRemoteExtension extends Extension {
         return null;
     }
 
-    /** Async wrapper around getAppIconSync (kept for AppChooser compatibility). */
     async getAppIcon(app) {
         return this.getAppIconSync(app);
     }
@@ -884,26 +948,18 @@ export default class AppleTVRemoteExtension extends Extension {
             ? config.favorites
             : [...DEFAULT_FAVORITE_APPS];
         this._saveAppsConfig(favorites, apps);
-        // Trigger the fetcher to download icons for newly discovered apps
         this._startColorFetcher();
         return apps;
     }
 
-    // ── Public API for other extensions ────────────────────────────────────
+    // ── Public API for other extensions ────────────────────────────────
 
-    /** Returns the currently selected device ID, or null if none. */
     getSelectedDevice() {
         return this._indicator?._selectedId ?? null;
     }
 
-    /**
-     * Send a command to the daemon via this extension's connection.
-     * @param {string}    command  Daemon command name (e.g. 'play_pause')
-     * @param {...string} args     Extra arguments forwarded to the daemon
-     * @returns {Promise}
-     */
     sendCommand(command, ...args) {
         return this._indicator?._send(command, ...args)
-            ?? Promise.reject(new Error('AppleTV Remote not ready'));
+            ?? Promise.reject(new Error('FruitTV Remote not ready'));
     }
 }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- grape cluster: 5 circles in triangle arrangement -->
+  <circle cx="5" cy="13" r="2.5" fill="currentColor"/>
+  <circle cx="11" cy="13" r="2.5" fill="currentColor"/>
+  <circle cx="5" cy="8" r="2.5" fill="currentColor"/>
+  <circle cx="11" cy="8" r="2.5" fill="currentColor"/>
+  <circle cx="8" cy="4" r="2.5" fill="currentColor"/>
+  <!-- stem -->
+  <line x1="8" y1="2" x2="8" y2="0.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

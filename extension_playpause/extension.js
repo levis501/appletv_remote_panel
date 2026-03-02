@@ -5,9 +5,9 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-export default class AppleTVPlayPauseExtension extends Extension {
+export default class FruitTVPlayPauseExtension extends Extension {
     enable() {
-        this._indicator = new PanelMenu.Button(0.0, 'Apple TV Play/Pause', true);
+        this._indicator = new PanelMenu.Button(0.0, 'Fruit TV Play/Pause', true);
 
         this._indicator.add_child(new St.Icon({
             icon_name: 'media-playback-start-symbolic',
@@ -17,16 +17,16 @@ export default class AppleTVPlayPauseExtension extends Extension {
         this._indicator.connect('button-press-event', () => {
             const main = Extension.lookupByUUID('appletv-remote@local');
             if (!main) {
-                log('AppleTV-PlayPause: main extension not available');
+                log('FruitTV-PlayPause: main extension not available');
                 return;
             }
             const deviceId = main.getSelectedDevice();
             if (!deviceId) {
-                log('AppleTV-PlayPause: no device selected');
+                log('FruitTV-PlayPause: no device selected');
                 return;
             }
             main.sendCommand('play_pause', deviceId).catch(e => {
-                log(`AppleTV-PlayPause: play_pause failed: ${e}`);
+                log(`FruitTV-PlayPause: play_pause failed: ${e}`);
             });
         });
 

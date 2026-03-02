@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- body -->
+  <ellipse cx="8" cy="11.5" rx="5" ry="4.5" fill="currentColor"/>
+  <!-- crown: fan of pointed leaves -->
+  <path d="M 8 8 L 4 5 L 6.5 6.5 L 5 2 L 8 5.5 L 11 2 L 9.5 6.5 L 12 5 L 8 8 Z" fill="currentColor"/>
+</svg>

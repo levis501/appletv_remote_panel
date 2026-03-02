@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- two cherry fruits -->
+  <circle cx="5" cy="12" r="3" fill="currentColor"/>
+  <circle cx="11" cy="12" r="3" fill="currentColor"/>
+  <!-- Y-shaped stem -->
+  <path d="M 5 9 Q 8 6 8 3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  <path d="M 11 9 Q 8 6 8 3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+</svg>

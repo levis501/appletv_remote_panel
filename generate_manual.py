@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_manual.py — Generate a 1-page PDF user guide for the Apple TV Remote Panel.
+generate_manual.py — Generate a 1-page PDF user guide for the Fruit TV Remote Panel.
 
 Screenshot is centred on the page. Left-column callouts sit to the left of the
 image (right-aligned). Right-column callouts sit to the right (left-aligned).
@@ -10,7 +10,7 @@ Power callout uses a horizontal stub + diagonal final segment.
 Usage:
     python3 generate_manual.py [output_path]
 
-Default output: images/appletv_remote_manual.pdf
+Default output: images/fruittv_remote_manual.pdf
 Requires: reportlab (auto-installed), Pillow (already in venv)
 """
 
@@ -39,8 +39,8 @@ from PIL import Image
 # ── 1. Paths ──────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
-IMG_SRC    = SCRIPT_DIR / "images" / "appletv extension screenshot.png"
-OUTPUT_PDF = SCRIPT_DIR / "images" / "appletv_remote_manual.pdf"
+IMG_SRC    = SCRIPT_DIR / "images" / "fruittv extension screenshot.png"
+OUTPUT_PDF = SCRIPT_DIR / "images" / "fruittv_remote_manual.pdf"
 
 
 # ── 2. Page geometry ──────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ CALLOUTS = [
 
     ("Open Remote",
      [],
-     101, 20, 'right', 0, 'normal'),
+     140, 20, 'right', 0, 'normal'),
 
     # ── Remote top row ────────────────────────────────────────────────────────
     ("Device Manager",
@@ -275,13 +275,13 @@ def generate_pdf(output_path=None):
     img_right = img_left + img_pdf_w
 
     c = canvas.Canvas(str(output_path), pagesize=A4)
-    c.setTitle("Apple TV Remote Panel — User Guide")
-    c.setAuthor("Apple TV Remote Panel")
+    c.setTitle("Fruit TV Remote Panel — User Guide")
+    c.setAuthor("Fruit TV Remote Panel")
 
     # ── Title ─────────────────────────────────────────────────────────────────
     c.setFont("Helvetica-Bold", 16)
     c.setFillColor(DARK_NAVY)
-    c.drawString(MARGIN, TITLE_Y, "Apple TV Remote Panel \u2014 User Guide")
+    c.drawString(MARGIN, TITLE_Y, "Fruit TV Remote Panel \u2014 User Guide")
     c.setStrokeColor(LIGHT_GREY)
     c.setLineWidth(0.5)
     c.line(MARGIN, RULE_Y, PAGE_W - MARGIN, RULE_Y)
@@ -291,7 +291,7 @@ def generate_pdf(output_path=None):
     c.setFont("Helvetica", 7)
     c.setFillColor(FOOTER_GREY)
     c.drawString(MARGIN, foot_y,
-                 "Apple TV Remote Panel for GNOME Shell  \u2022  GNOME Extension")
+                 "Fruit TV Remote Panel for GNOME Shell  \u2022  GNOME Extension")
     c.drawRightString(PAGE_W - MARGIN, foot_y,
                       datetime.date.today().strftime("%B %Y"))
     c.setStrokeColor(LIGHT_GREY)

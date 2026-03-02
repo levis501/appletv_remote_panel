@@ -1,7 +1,7 @@
 {
     "uuid": "appletv-remote@local",
-    "name": "Apple TV Remote",
-    "description": "Control Apple TVs from the GNOME top panel",
+    "name": "Fruit TV Remote",
+    "description": "Control Fruit TVs from the GNOME top panel",
     "shell-version": ["45", "46"],
     "version": 1,
     "url": ""

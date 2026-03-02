@@ -1,13 +1,13 @@
-/* stylesheet.css — Apple TV Remote GNOME Shell Extension */
+/* stylesheet.css — Fruit TV Remote GNOME Shell Extension */
 
 /* Control rows (playback, volume, system) */
-.appletv-control-row {
+.fruittv-control-row {
     spacing: 8px;
     padding: 4px 0;
 }
 
 /* Icon buttons: play/pause, skip, volume */
-.appletv-icon-btn {
+.fruittv-icon-btn {
     border-radius: 5px;
     padding: 6px;
     min-width: 34px;
@@ -15,16 +15,16 @@
     background-color: rgba(255, 255, 255, 0.08);
 }
 
-.appletv-icon-btn:hover {
+.fruittv-icon-btn:hover {
     background-color: rgba(255, 255, 255, 0.18);
 }
 
-.appletv-icon-btn:active {
+.fruittv-icon-btn:active {
     background-color: rgba(255, 255, 255, 0.30);
 }
 
 /* Text buttons: Menu, Top Menu, Home */
-.appletv-text-btn {
+.fruittv-text-btn {
     border-radius: 5px;
     padding: 4px 12px;
     min-height: 28px;
@@ -32,49 +32,49 @@
     background-color: rgba(255, 255, 255, 0.08);
 }
 
-.appletv-text-btn:hover {
+.fruittv-text-btn:hover {
     background-color: rgba(255, 255, 255, 0.18);
 }
 
-.appletv-text-btn:active {
+.fruittv-text-btn:active {
     background-color: rgba(255, 255, 255, 0.30);
 }
 
 /* Remote graphic + hit regions */
-.appletv-remote-graphic {
+.fruittv-remote-graphic {
     min-width: 225px;
     min-height: 877px;
 }
 
-.appletv-hit-btn {
+.fruittv-hit-btn {
     background-color: rgba(255, 255, 255, 0.0);
     border: 1px solid rgba(255, 255, 255, 0.0);
     border-radius: 8px;
     transition-duration: 120ms;
 }
 
-.appletv-hit-btn:hover {
+.fruittv-hit-btn:hover {
     background-color: rgba(255, 255, 255, 0.12);
     border-color: rgba(255, 255, 255, 0.25);
 }
 
-.appletv-hit-btn:active {
+.fruittv-hit-btn:active {
     background-color: rgba(255, 255, 255, 0.24);
     border-color: rgba(255, 255, 255, 0.45);
 }
 
-.appletv-hit-circle {
+.fruittv-hit-circle {
     border-radius: 999px;
 }
 
-.appletv-remote-light {
+.fruittv-remote-light {
     background-color: rgb(0, 255, 0);
     border-radius: 999px;
     box-shadow: 0 0 6px rgba(0, 255, 0, 0.8);
     opacity: 0;
 }
 
-.appletv-remote-item {
+.fruittv-remote-item {
     padding: 0 !important;
     margin: 0 !important;
     background-color: transparent !important;
@@ -83,7 +83,7 @@
 
 /* ── Power button (shown next to each device name) ───────────────────────── */
 
-.appletv-power-btn {
+.fruittv-power-btn {
     border-radius: 50%;
     padding: 2px 5px;
     min-width: 24px;
@@ -94,40 +94,40 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.appletv-power-btn:hover {
+.fruittv-power-btn:hover {
     background-color: rgba(255, 255, 255, 0.18);
     border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Italic status text shown next to device name when not fully connected */
-.appletv-status-label {
+.fruittv-status-label {
     font-size: 10px;
     font-style: italic;
     color: rgba(255, 255, 255, 0.45);
     padding: 0 4px;
 }
 
-.appletv-status-label.appletv-status-unavailable {
+.fruittv-status-label.fruittv-status-unavailable {
     color: rgba(255, 100, 100, 0.7);
 }
 
-.appletv-app-btn {
+.fruittv-app-btn {
     padding: 6px;
     background-color: rgba(255, 255, 255, 0.08);
     border-radius: 8px;
 }
 
-.appletv-app-btn:hover {
+.fruittv-app-btn:hover {
     background-color: rgba(255, 255, 255, 0.18);
 }
 
-.appletv-app-btn:active {
+.fruittv-app-btn:active {
     background-color: rgba(255, 255, 255, 0.30);
 }
 
 /* ── Position / duration label (below playback buttons) ─────────────────── */
 
-.appletv-position-label {
+.fruittv-position-label {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.6);
     padding: 2px 0 4px;
@@ -135,47 +135,47 @@
 
 /* ── Metadata section (artwork + text, below volume) ─────────────────────── */
 
-.appletv-meta-box {
+.fruittv-meta-box {
     spacing: 10px;
     padding: 4px 0;
 }
 
 /* Left column: square artwork thumbnail */
-.appletv-artwork {
+.fruittv-artwork {
     min-width:  64px;
     min-height: 64px;
     border-radius: 4px;
 }
 
 /* Right column: stacked text labels */
-.appletv-meta-text-box {
+.fruittv-meta-text-box {
     spacing: 2px;
 }
 
-.appletv-meta-title {
+.fruittv-meta-title {
     font-size: 12px;
     font-weight: bold;
 }
 
-.appletv-meta-artist {
+.fruittv-meta-artist {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.8);
 }
 
-.appletv-meta-album {
+.fruittv-meta-album {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.6);
     font-style: italic;
 }
 
-.appletv-meta-series {
+.fruittv-meta-series {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.7);
 }
 
 /* ── Text entry (bottom of menu) ─────────────────────────────────────────── */
 
-.appletv-text-entry {
+.fruittv-text-entry {
     min-height: 28px;
     border-radius: 4px;
     background-color: rgba(255, 255, 255, 0.08);
@@ -184,19 +184,19 @@
     padding: 0 8px;
 }
 
-.appletv-text-entry:focus {
+.fruittv-text-entry:focus {
     border-color: rgba(100, 180, 255, 0.6);
     background-color: rgba(255, 255, 255, 0.12);
 }
 
 /* Text entry in device dialog (white background) needs black text */
-.appletv-device-dialog .appletv-text-entry {
+.fruittv-device-dialog .fruittv-text-entry {
     color: black;
 }
 
 /* ── App quick-launch buttons (below remote) ─────────────────────────────── */
 
-.appletv-quick-app-btn {
+.fruittv-quick-app-btn {
     border-radius: 10px;
     width: 50px;
     height: 50px;
@@ -206,61 +206,63 @@
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.appletv-quick-app-btn:hover {
+.fruittv-quick-app-btn:hover {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
-.appletv-quick-app-btn:active {
+.fruittv-quick-app-btn:active {
     background-color: rgba(255, 255, 255, 0.32);
 }
 
-/* Chooser dialog buttons — background override (same specificity as quick-app-btn,
-   appears later in file so it wins the cascade). Size is set by the compound rule
-   below. Must appear BEFORE brand color rules so brand colors override background. */
-.appletv-app-chooser-btn {
+/* Chooser dialog buttons — background override */
+.fruittv-app-chooser-btn {
     background-color: rgba(255, 255, 255, 0.18);
     border-color: transparent;
 }
 
-.appletv-app-chooser-btn:hover {
+.fruittv-app-chooser-btn:hover {
     background-color: rgba(255, 255, 255, 0.28);
 }
 
 /* Per-app brand colors — applied when no icon is available */
-.appletv-app-color-tv       { background-color: #1c1c1e; border-color: rgba(255,255,255,0.1); }
-.appletv-app-color-music    { background-color: #fc3c44; border-color: #fd6872; }
-.appletv-app-color-settings { background-color: #636366; border-color: #7a7a7c; }
-.appletv-app-color-youtube  { background-color: #ff0000; border-color: #ff4444; }
-.appletv-app-color-netflix  { background-color: #e50914; border-color: #ff2030; }
-.appletv-app-color-hulu     { background-color: #3dbb3d; border-color: #5ad65a; }
+.fruittv-app-color-tv       { background-color: #1c1c1e; border-color: rgba(255,255,255,0.1); }
+.fruittv-app-color-music    { background-color: #fc3c44; border-color: #fd6872; }
+.fruittv-app-color-settings { background-color: #636366; border-color: #7a7a7c; }
+.fruittv-app-color-youtube  { background-color: #ff0000; border-color: #ff4444; }
+.fruittv-app-color-netflix  { background-color: #e50914; border-color: #ff2030; }
+.fruittv-app-color-hulu     { background-color: #3dbb3d; border-color: #5ad65a; }
 
-.appletv-app-color-tv:hover       { background-color: #2c2c2e; }
-.appletv-app-color-music:hover    { background-color: #fd5c68; }
-.appletv-app-color-settings:hover { background-color: #7a7a7c; }
-.appletv-app-color-youtube:hover  { background-color: #ff3333; }
-.appletv-app-color-netflix:hover  { background-color: #ff0f1e; }
-.appletv-app-color-hulu:hover     { background-color: #5ad65a; }
+.fruittv-app-color-tv:hover       { background-color: #2c2c2e; }
+.fruittv-app-color-music:hover    { background-color: #fd5c68; }
+.fruittv-app-color-settings:hover { background-color: #7a7a7c; }
+.fruittv-app-color-youtube:hover  { background-color: #ff3333; }
+.fruittv-app-color-netflix:hover  { background-color: #ff0f1e; }
+.fruittv-app-color-hulu:hover     { background-color: #5ad65a; }
 
 /* When a real icon fills the button, reduce padding so the icon uses the full area */
-.appletv-quick-app-btn-with-icon {
+.fruittv-quick-app-btn-with-icon {
     padding: 0;
 }
 
-.appletv-quick-app-label {
+.fruittv-quick-app-label {
     font-size: 10px;
     color: white;
     text-align: center;
 }
 
+/* Fruit icon inside the TV app button */
+.fruittv-app-fruit-icon {
+    color: white;
+}
+
 /* Issue 6: bright green border when this app is the currently active one */
-.appletv-quick-app-btn.appletv-app-active {
+.fruittv-quick-app-btn.fruittv-app-active {
     border: 2px solid #00ff00;
     box-shadow: 0 0 6px rgba(0, 255, 0, 0.5);
 }
 
-/* Chooser button size — compound selector (specificity 0,2,0) beats single-class
-   width: 66px from appletv-quick-app-btn (0,1,0). No !important needed. */
-.appletv-quick-app-btn.appletv-app-chooser-btn {
+/* Chooser button size — compound selector (specificity 0,2,0) beats single-class */
+.fruittv-quick-app-btn.fruittv-app-chooser-btn {
     width: 50px;
     min-width: 50px;
     height: 50px;
@@ -268,13 +270,13 @@
     padding: 0;
 }
 
-.appletv-app-chooser-btn.appletv-quick-app-btn-with-icon {
+.fruittv-app-chooser-btn.fruittv-quick-app-btn-with-icon {
     padding: 0;
 }
 
 /* ── Device management dialog ────────────────────────────────────────────── */
 
-.appletv-device-dialog {
+.fruittv-device-dialog {
     background-color: #ffffff;
     color: #000000;
 }
@@ -284,53 +286,53 @@
     color: #ffffff;
 }
 
-.appletv-device-dialog-title {
+.fruittv-device-dialog-title {
     font-size: 14px;
     font-weight: bold;
     padding: 0 0 10px 0;
     color: black;
 }
 
-.appletv-device-scroll {
+.fruittv-device-scroll {
     max-height: 300px;
     min-width: 320px;
 }
 
-.appletv-device-list {
+.fruittv-device-list {
     spacing: 4px;
     padding: 4px 0;
 }
 
-.appletv-device-row {
+.fruittv-device-row {
     spacing: 8px;
     padding: 6px 4px;
     border-radius: 6px;
     background-color: rgba(0, 0, 0, 0.05);
 }
 
-.appletv-device-dot {
+.fruittv-device-dot {
     font-size: 14px;
     color: #26a269;
     min-width: 16px;
 }
 
-.appletv-device-name {
+.fruittv-device-name {
     font-size: 13px;
     color: black;
 }
 
-.appletv-device-unregistered {
+.fruittv-device-unregistered {
     color: rgba(0, 0, 0, 0.5);
     font-style: italic;
 }
 
-.appletv-device-note {
+.fruittv-device-note {
     font-size: 10px;
     color: rgba(0, 0, 0, 0.45);
     font-style: italic;
 }
 
-.appletv-device-btn {
+.fruittv-device-btn {
     border-radius: 5px;
     padding: 3px 10px;
     font-size: 11px;
@@ -339,31 +341,56 @@
     color: black;
 }
 
-.appletv-device-btn:hover {
+.fruittv-device-btn:hover {
     background-color: rgba(0, 0, 0, 0.1);
 }
 
-.appletv-device-remove-btn {
+.fruittv-device-remove-btn {
     background-color: rgba(200, 50, 50, 0.15);
     border-color: rgba(220, 80, 80, 0.4);
 }
 
-.appletv-device-remove-btn:hover {
+.fruittv-device-remove-btn:hover {
     background-color: rgba(220, 60, 60, 0.25);
 }
 
-.appletv-device-none-label {
+.fruittv-device-none-label {
     font-size: 12px;
     color: rgba(0, 0, 0, 0.6);
     font-style: italic;
     padding: 8px 4px;
 }
 
-.appletv-device-status {
+.fruittv-device-status {
     font-size: 11px;
     color: rgba(0, 120, 0, 0.85);
     padding: 6px 2px 0;
     font-style: italic;
+}
+
+/* ── Fruit picker (in Device Manager) ───────────────────────────────────── */
+
+.fruittv-device-fruit-row {
+    spacing: 4px;
+    padding: 4px 0 8px 0;
+}
+
+.fruittv-device-fruit-btn {
+    width: 28px;
+    height: 28px;
+    padding: 3px;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fruittv-device-fruit-btn:hover {
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+.fruittv-device-fruit-active {
+    border: 2px solid #2196f3;
+    background-color: rgba(33, 150, 243, 0.15);
 }
 
 /* App Selection Window Grid and Buttons */
@@ -382,4 +409,3 @@
 .app-dialog-ok-btn {
     color: white !important;
 }
-

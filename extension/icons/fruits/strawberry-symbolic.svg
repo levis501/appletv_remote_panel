@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- leaves at top -->
+  <path d="M 5 5 C 4 2 7 1 8 3 C 9 1 12 2 11 5" fill="currentColor"/>
+  <!-- body: rounded triangle -->
+  <path d="M 8 15 C 4 15 1 11 2 8 C 3 5 5 4 8 4 C 11 4 13 5 14 8 C 15 11 12 15 8 15 Z" fill="currentColor"/>
+</svg>

@@ -1,7 +1,7 @@
 {
     "uuid": "appletv-mouse@local",
-    "name": "Apple TV Mouse Control",
-    "description": "Control Apple TV with mouse movements and clicks",
+    "name": "Fruit TV Mouse Control",
+    "description": "Control Fruit TV with mouse movements and clicks",
     "shell-version": ["45", "46"],
     "version": 1,
     "url": ""

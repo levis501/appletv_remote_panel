@@ -1,7 +1,7 @@
-/* Apple TV Mouse Control Extension — stylesheet.css */
+/* Fruit TV Mouse Control Extension — stylesheet.css */
 
 /* ── Info panel container ──────────────────────────────────────────────────── */
-.appletv-mouse-panel {
+.fruittv-mouse-panel {
     background-color: rgba(18, 18, 18, 0.94);
     border: 1px solid rgba(90, 90, 90, 0.8);
     border-radius: 10px;
@@ -9,56 +9,56 @@
 }
 
 /* ── Text styles ───────────────────────────────────────────────────────────── */
-.appletv-mouse-title {
+.fruittv-mouse-title {
     font-weight: bold;
     font-size: 13px;
     color: #eeeeee;
 }
 
-.appletv-mouse-status {
+.fruittv-mouse-status {
     font-size: 11px;
     color: #aaaaaa;
 }
 
-.appletv-mouse-tips {
+.fruittv-mouse-tips {
     font-size: 10px;
     color: #666666;
 }
 
 /* ── Separator lines ───────────────────────────────────────────────────────── */
-.appletv-mouse-sep {
+.fruittv-mouse-sep {
     background-color: rgba(80, 80, 80, 0.5);
 }
 
 /* ── Mouse button map boxes ────────────────────────────────────────────────── */
-.appletv-mouse-btn-left,
-.appletv-mouse-btn-right {
+.fruittv-mouse-btn-left,
+.fruittv-mouse-btn-right {
     background-color: rgba(42, 42, 42, 0.9);
     border: 1px solid rgba(80, 80, 80, 0.8);
     border-radius: 5px;
 }
 
-.appletv-mouse-btn-scroll {
+.fruittv-mouse-btn-scroll {
     background-color: rgba(38, 38, 48, 0.9);
     border: 1px solid rgba(80, 80, 100, 0.8);
     border-radius: 5px;
 }
 
-.appletv-mouse-btn-move {
+.fruittv-mouse-btn-move {
     background-color: rgba(35, 42, 35, 0.9);
     border: 1px solid rgba(70, 90, 70, 0.8);
     border-radius: 5px;
 }
 
 /* Label inside each map box */
-.appletv-mouse-map-label {
+.fruittv-mouse-map-label {
     font-size: 10px;
     color: #cccccc;
     text-align: center;
 }
 
 /* ── D-pad cells ───────────────────────────────────────────────────────────── */
-.appletv-mouse-dpad-cell {
+.fruittv-mouse-dpad-cell {
     background-color: rgba(42, 42, 42, 0.9);
     border: 1px solid rgba(80, 80, 80, 0.8);
     border-radius: 4px;
@@ -67,7 +67,7 @@
     text-align: center;
 }
 
-.appletv-mouse-dpad-center {
+.fruittv-mouse-dpad-center {
     background-color: rgba(52, 52, 52, 0.9);
     border: 1px solid rgba(90, 90, 90, 0.8);
     border-radius: 4px;
@@ -77,14 +77,14 @@
 }
 
 /* ── Active / feedback highlight ───────────────────────────────────────────── */
-.appletv-mouse-active {
+.fruittv-mouse-active {
     background-color: rgba(0, 170, 68, 0.9) !important;
     border-color: rgba(0, 255, 102, 0.9) !important;
     color: #ffffff !important;
 }
 
 /* ── Sensitivity control ───────────────────────────────────────────────────── */
-.appletv-mouse-threshold-btn {
+.fruittv-mouse-threshold-btn {
     background-color: rgba(50, 50, 50, 0.9);
     border: 1px solid rgba(90, 90, 90, 0.8);
     border-radius: 4px;
@@ -94,17 +94,17 @@
     text-align: center;
 }
 
-.appletv-mouse-threshold-btn:hover {
+.fruittv-mouse-threshold-btn:hover {
     background-color: rgba(70, 70, 70, 0.9);
     border-color: rgba(120, 120, 120, 0.9);
 }
 
-.appletv-mouse-threshold-btn:active {
+.fruittv-mouse-threshold-btn:active {
     background-color: rgba(0, 140, 60, 0.9);
     border-color: rgba(0, 200, 80, 0.9);
 }
 
-.appletv-mouse-threshold-val {
+.fruittv-mouse-threshold-val {
     color: #eeeeee;
     font-size: 12px;
     text-align: center;

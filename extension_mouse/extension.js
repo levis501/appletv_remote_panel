@@ -22,7 +22,7 @@ const MouseInfoPanel = GObject.registerClass(
 class MouseInfoPanel extends St.Widget {
     _init() {
         super._init({
-            style_class: 'appletv-mouse-panel',
+            style_class: 'fruittv-mouse-panel',
             layout_manager: new Clutter.FixedLayout(),
             reactive: false,
             width: 240,
@@ -41,7 +41,7 @@ class MouseInfoPanel extends St.Widget {
 
         // ── Title row ────────────────────────────────────────────────────────
         const title = new St.Label({
-            style_class: 'appletv-mouse-title',
+            style_class: 'fruittv-mouse-title',
             text: '🖱  Mouse Control',
         });
         title.set_position(8, 6);
@@ -49,14 +49,14 @@ class MouseInfoPanel extends St.Widget {
 
         // ── Status row ───────────────────────────────────────────────────────
         const status = new St.Label({
-            style_class: 'appletv-mouse-status',
+            style_class: 'fruittv-mouse-status',
             text: '● Captured — right click to release',
         });
         status.set_position(8, 30);
         this.add_child(status);
 
         // ── Separator ────────────────────────────────────────────────────────
-        const sep1 = new St.Widget({ style_class: 'appletv-mouse-sep', width: W - 16, height: 1 });
+        const sep1 = new St.Widget({ style_class: 'fruittv-mouse-sep', width: W - 16, height: 1 });
         sep1.set_position(8, 52);
         this.add_child(sep1);
 
@@ -73,13 +73,13 @@ class MouseInfoPanel extends St.Widget {
         [btnLeft, btnRight, btnScroll, btnMove].forEach(b => this.add_child(b));
 
         // ── Separator ────────────────────────────────────────────────────────
-        const sep2 = new St.Widget({ style_class: 'appletv-mouse-sep', width: W - 16, height: 1 });
+        const sep2 = new St.Widget({ style_class: 'fruittv-mouse-sep', width: W - 16, height: 1 });
         sep2.set_position(8, 167);
         this.add_child(sep2);
 
         // ── D-pad visualizer label ────────────────────────────────────────────
         const dpadLabel = new St.Label({
-            style_class: 'appletv-mouse-status',
+            style_class: 'fruittv-mouse-status',
             text: 'Last Direction',
         });
         dpadLabel.set_position(8, 173);
@@ -99,20 +99,20 @@ class MouseInfoPanel extends St.Widget {
         [dpadUp, dpadLeft, dpadCtr, dpadRight, dpadDown].forEach(c => this.add_child(c));
 
         // ── Separator ────────────────────────────────────────────────────────
-        const sep3 = new St.Widget({ style_class: 'appletv-mouse-sep', width: W - 16, height: 1 });
+        const sep3 = new St.Widget({ style_class: 'fruittv-mouse-sep', width: W - 16, height: 1 });
         sep3.set_position(8, 253);
         this.add_child(sep3);
 
         // ── Sensitivity row ───────────────────────────────────────────────────
         const sensLabel = new St.Label({
-            style_class: 'appletv-mouse-status',
+            style_class: 'fruittv-mouse-status',
             text: 'Sensitivity:',
         });
         sensLabel.set_position(8, 260);
         this.add_child(sensLabel);
 
         const btnMinus = new St.Button({
-            style_class: 'appletv-mouse-threshold-btn',
+            style_class: 'fruittv-mouse-threshold-btn',
             label: '−',
             reactive: true,
             width: 24,
@@ -122,14 +122,14 @@ class MouseInfoPanel extends St.Widget {
         this.add_child(btnMinus);
 
         this._thresholdLabel = new St.Label({
-            style_class: 'appletv-mouse-threshold-val',
+            style_class: 'fruittv-mouse-threshold-val',
             text: `${this._threshold}px`,
         });
         this._thresholdLabel.set_position(118, 260);
         this.add_child(this._thresholdLabel);
 
         const btnPlus = new St.Button({
-            style_class: 'appletv-mouse-threshold-btn',
+            style_class: 'fruittv-mouse-threshold-btn',
             label: '+',
             reactive: true,
             width: 24,
@@ -150,13 +150,13 @@ class MouseInfoPanel extends St.Widget {
         });
 
         // ── Separator ────────────────────────────────────────────────────────
-        const sep4 = new St.Widget({ style_class: 'appletv-mouse-sep', width: W - 16, height: 1 });
+        const sep4 = new St.Widget({ style_class: 'fruittv-mouse-sep', width: W - 16, height: 1 });
         sep4.set_position(8, 287);
         this.add_child(sep4);
 
         // ── Tips row ──────────────────────────────────────────────────────────
         const tips = new St.Label({
-            style_class: 'appletv-mouse-tips',
+            style_class: 'fruittv-mouse-tips',
             text: 'Move=D-Pad  Left=Select  Scroll=Vol  Right/Esc=Exit',
         });
         tips.set_position(8, 294);
@@ -168,13 +168,13 @@ class MouseInfoPanel extends St.Widget {
     // Create a labeled map box (non-reactive label area)
     _makeMapBox(name, labelText, x, y, w, h) {
         const cssMap = {
-            btn_left:   'appletv-mouse-btn-left',
-            btn_right:  'appletv-mouse-btn-right',
-            btn_scroll: 'appletv-mouse-btn-scroll',
-            btn_move:   'appletv-mouse-btn-move',
+            btn_left:   'fruittv-mouse-btn-left',
+            btn_right:  'fruittv-mouse-btn-right',
+            btn_scroll: 'fruittv-mouse-btn-scroll',
+            btn_move:   'fruittv-mouse-btn-move',
         };
         const box = new St.Widget({
-            style_class: cssMap[name] || 'appletv-mouse-btn-move',
+            style_class: cssMap[name] || 'fruittv-mouse-btn-move',
             width: w,
             height: h,
             layout_manager: new Clutter.FixedLayout(),
@@ -183,7 +183,7 @@ class MouseInfoPanel extends St.Widget {
 
         const lbl = new St.Label({
             text: labelText,
-            style_class: 'appletv-mouse-map-label',
+            style_class: 'fruittv-mouse-map-label',
             x_align: Clutter.ActorAlign.CENTER,
         });
         lbl.set_position(0, h / 2 - 8);
@@ -200,7 +200,7 @@ class MouseInfoPanel extends St.Widget {
     _makeDpadCell(name, char, x, y) {
         const isCenter = name === 'dpad_center';
         const cell = new St.Label({
-            style_class: isCenter ? 'appletv-mouse-dpad-center' : 'appletv-mouse-dpad-cell',
+            style_class: isCenter ? 'fruittv-mouse-dpad-center' : 'fruittv-mouse-dpad-cell',
             text: char,
             width: 28,
             height: 28,
@@ -223,10 +223,10 @@ class MouseInfoPanel extends St.Widget {
             this._feedbackTimers[name] = null;
         }
 
-        widget.add_style_class_name('appletv-mouse-active');
+        widget.add_style_class_name('fruittv-mouse-active');
 
         this._feedbackTimers[name] = GLib.timeout_add(GLib.PRIORITY_DEFAULT, FEEDBACK_MS, () => {
-            widget.remove_style_class_name('appletv-mouse-active');
+            widget.remove_style_class_name('fruittv-mouse-active');
             this._feedbackTimers[name] = null;
             return GLib.SOURCE_REMOVE;
         });
@@ -305,22 +305,22 @@ class MouseControlOverlay extends St.Widget {
     }
 
     _getMainExt() {
-        return Extension.lookupByUUID('appletv-remote@local');
+        return Extension.lookupByUUID('fruittv-remote@local');
     }
 
     _sendCmd(cmd) {
         const main = this._getMainExt();
         if (!main) {
-            log('AppleTV-Mouse: main extension not available');
+            log('FruitTV-Mouse: main extension not available');
             return;
         }
         const deviceId = main.getSelectedDevice();
         if (!deviceId) {
-            log('AppleTV-Mouse: no device selected');
+            log('FruitTV-Mouse: no device selected');
             return;
         }
         main.sendCommand(cmd, deviceId).catch(e => {
-            log(`AppleTV-Mouse: command ${cmd} failed: ${e}`);
+            log(`FruitTV-Mouse: command ${cmd} failed: ${e}`);
         });
     }
 
@@ -421,7 +421,7 @@ class MouseControlOverlay extends St.Widget {
 const MouseIndicator = GObject.registerClass(
 class MouseIndicator extends PanelMenu.Button {
     _init() {
-        super._init(0.0, 'Apple TV Mouse Control', true); // dontCreateMenu=true
+        super._init(0.0, 'Fruit TV Mouse Control', true); // dontCreateMenu=true
 
         this._icon = new St.Icon({
             icon_name: 'input-mouse-symbolic',

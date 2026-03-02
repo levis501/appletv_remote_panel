@@ -7,13 +7,16 @@ import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/ex
 
 // CSS class to apply for each known app's brand color
 const APP_COLOR_CLASSES = {
-    'com.apple.TVWatchList':   'appletv-app-color-tv',
-    'com.apple.TVMusic':       'appletv-app-color-music',
-    'com.apple.TVSettings':    'appletv-app-color-settings',
-    'com.google.ios.youtube':  'appletv-app-color-youtube',
-    'com.netflix.Netflix':     'appletv-app-color-netflix',
-    'com.hulu.HuluTV':         'appletv-app-color-hulu',
+    'com.apple.TVWatchList':   'fruittv-app-color-tv',
+    'com.apple.TVMusic':       'fruittv-app-color-music',
+    'com.apple.TVSettings':    'fruittv-app-color-settings',
+    'com.google.ios.youtube':  'fruittv-app-color-youtube',
+    'com.netflix.Netflix':     'fruittv-app-color-netflix',
+    'com.hulu.HuluTV':         'fruittv-app-color-hulu',
 };
+
+// The TV app ID gets special fruit+TV rendering
+const TV_APP_ID = 'com.apple.TVWatchList';
 
 const APP_TILE_WIDTH = 50;
 const APP_TILE_HEIGHT = 50;
@@ -78,7 +81,7 @@ const AppTile = GObject.registerClass(
 class AppTile extends St.Button {
     _init(extension, atvDevice, app) {
         super._init({
-            style_class: 'appletv-quick-app-btn appletv-app-chooser-btn',
+            style_class: 'fruittv-quick-app-btn fruittv-app-chooser-btn',
             can_focus: true,
             reactive: true,
         });
@@ -86,9 +89,52 @@ class AppTile extends St.Button {
         this._atvDevice = atvDevice;
         this._app = app;
 
-        const iconFile      = this._extension.getAppIconSync(app);
-        const fetchedColors = this._extension.getAppColor(app.id);
-        const isLoading     = !iconFile && !this._extension.hasAppBeenProcessed(app.id);
+        // TV app gets special fruit + "TV" rendering
+        if (app.id === TV_APP_ID) {
+            this._buildFruitTVContent(extension);
+        } else {
+            this._buildNormalContent(extension, app);
+        }
+
+        this.connect('button-press-event', () => this._toggle());
+
+        this._selected = false;
+        this._initSelection();
+    }
+
+    _buildFruitTVContent(extension) {
+        this.add_style_class_name('fruittv-app-color-tv');
+
+        const box = new St.BoxLayout({
+            vertical: true,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            x_expand: true,
+            y_expand: true,
+        });
+
+        const fruitPath = `${extension.path}/icons/fruits/${extension.getLogoFruit()}-symbolic.svg`;
+        const icon = new St.Icon({
+            gicon: new Gio.FileIcon({ file: Gio.File.new_for_path(fruitPath) }),
+            icon_size: 22,
+            style_class: 'fruittv-app-fruit-icon',
+        });
+        box.add_child(icon);
+
+        const label = new St.Label({
+            text: 'TV',
+            style_class: 'fruittv-quick-app-label',
+            x_align: Clutter.ActorAlign.CENTER,
+        });
+        box.add_child(label);
+
+        this.set_child(box);
+    }
+
+    _buildNormalContent(extension, app) {
+        const iconFile      = extension.getAppIconSync(app);
+        const fetchedColors = extension.getAppColor(app.id);
+        const isLoading     = !iconFile && !extension.hasAppBeenProcessed(app.id);
 
         // Priority: fetched colors > CSS brand class (only when no icon, not loading, no fetched colors)
         const colorClass = (!iconFile && !fetchedColors && !isLoading) ? (APP_COLOR_CLASSES[app.id] || null) : null;
@@ -98,7 +144,7 @@ class AppTile extends St.Button {
 
         if (iconFile) {
             // Real icon fills the whole button — no label
-            this.add_style_class_name('appletv-quick-app-btn-with-icon');
+            this.add_style_class_name('fruittv-quick-app-btn-with-icon');
             this.set_style(
                 `background-image: url("${iconFile.get_path()}"); ` +
                 `background-size: ${APP_TILE_WIDTH}px ${APP_TILE_HEIGHT}px; ` +
@@ -113,18 +159,18 @@ class AppTile extends St.Button {
             );
             this.set_child(new St.Label({
                 text: wrapAppName(app.name),
-                style_class: 'appletv-quick-app-label',
+                style_class: 'fruittv-quick-app-label',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             }));
         } else {
-            // Color fallback (Apple system apps etc.) — centered label
+            // Color fallback — centered label
             if (fetchedColors) {
                 this.set_style(`background-color: ${fetchedColors.bg};`);
             }
             const label = new St.Label({
                 text: wrapAppName(app.name),
-                style_class: 'appletv-quick-app-label',
+                style_class: 'fruittv-quick-app-label',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
@@ -133,11 +179,6 @@ class AppTile extends St.Button {
             }
             this.set_child(label);
         }
-
-        this.connect('button-press-event', () => this._toggle());
-
-        this._selected = false;
-        this._initSelection();
     }
 
     _initSelection() {
@@ -157,9 +198,9 @@ class AppTile extends St.Button {
 
     _updateStyle() {
         if (this._selected) {
-            this.add_style_class_name('appletv-app-active');
+            this.add_style_class_name('fruittv-app-active');
         } else {
-            this.remove_style_class_name('appletv-app-active');
+            this.remove_style_class_name('fruittv-app-active');
         }
     }
 });
@@ -205,7 +246,7 @@ class AppChooser extends St.BoxLayout {
 
             apps.sort((a, b) => a.name.localeCompare(b.name));
 
-            // Issue 1: Remove apps from favorites if they no longer exist on device
+            // Remove apps from favorites if they no longer exist on device
             const favorites = this._extension.getFavoriteAppObjects();
             const appIds = new Set(apps.map(a => a.id));
             for (const fav of favorites) {
