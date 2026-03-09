@@ -46,12 +46,57 @@ def find_device(cfg, device_id):
     return None
 
 
+def _normalize_os_name(value):
+    if value is None:
+        return None
+    text = str(value)
+    if "." in text:
+        text = text.split(".")[-1]
+    return text
+
+
+def _pick_first_nonempty(*values):
+    for value in values:
+        if value is not None and str(value) != "":
+            return str(value)
+    return None
+
+
+def _extract_device_info(config):
+    """Extract network-discovered device info from a pyatv config object."""
+    result = {
+        "address": str(getattr(config, "address", "") or ""),
+    }
+    info = getattr(config, "device_info", None)
+    if info is not None:
+        result["model"] = _pick_first_nonempty(
+            getattr(info, "model_str", None),
+            getattr(info, "model", None),
+        )
+        result["operating_system"] = _normalize_os_name(
+            getattr(info, "operating_system", None)
+        )
+        result["os_version"] = _pick_first_nonempty(
+            getattr(info, "version", None),
+            getattr(info, "operating_system_version", None),
+        )
+        result["build_number"] = _pick_first_nonempty(
+            getattr(info, "build_number", None)
+        )
+        result["mac"] = _pick_first_nonempty(
+            getattr(info, "mac", None),
+            getattr(info, "mac_address", None),
+        )
+    return result
+
+
 # ── Daemon ────────────────────────────────────────────────────────────────────
 
 class ATVDaemon:
     def __init__(self):
         self._connections = {}   # device_id -> atv object
         self._conn_locks = {}    # device_id -> asyncio.Lock (serialises reconnects)
+        self._details_cache = {} # device_id -> network-scanned device info dict
 
     # ── I/O helpers ───────────────────────────────────────────────────────────
 
@@ -105,6 +150,10 @@ class ATVDaemon:
         config = await self._build_config(entry)
         if config is None:
             raise ConnectionError(f"Device '{device_id}' not found on network")
+
+        # Cache device_info while we already have the scan result; avoids a
+        # re-scan when the user subsequently opens the device details dialog.
+        self._details_cache[device_id] = _extract_device_info(config)
 
         atv = await pyatv.connect(config, asyncio.get_running_loop())
         self._connections[device_id] = atv
@@ -312,6 +361,43 @@ class ATVDaemon:
                 
             save_config(cfg)
             return {"status": "saved"}
+
+        if cmd == "device_details":
+            if not args:
+                raise ValueError("device_details requires device_id")
+            device_id = args[0]
+            cfg = load_config()
+            entry = find_device(cfg, device_id)
+            if entry is None:
+                entry = {
+                    "id": device_id,
+                    "name": args[2] if len(args) > 2 else device_id,
+                    "address": args[1] if len(args) > 1 else "",
+                }
+            details = {
+                "id": entry.get("id", device_id),
+                "name": entry.get("name") or device_id,
+                "address": entry.get("address", ""),
+                "selected": cfg.get("selected") == device_id,
+                "credentials": {
+                    "mrp": bool(entry.get("credentials_mrp")),
+                    "companion": bool(entry.get("credentials_companion")),
+                    "airplay": bool(entry.get("credentials_airplay")),
+                },
+            }
+            # Use prefetched device_info when available (populated on connect)
+            if device_id in self._details_cache:
+                details.update(self._details_cache[device_id])
+            else:
+                try:
+                    config = await self._build_config(entry)
+                except Exception:
+                    config = None
+                if config is not None:
+                    info = _extract_device_info(config)
+                    self._details_cache[device_id] = info
+                    details.update(info)
+            return details
 
         # ── Commands that require a live connection ────────────────────────────
 

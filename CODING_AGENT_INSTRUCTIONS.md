@@ -10,6 +10,7 @@ The project is a GNOME Shell remote for Apple TV devices.
 
 - Backend: Python scripts in `scripts/` using `pyatv`.
 - Frontend: GNOME Shell extension code in `extension/` (GJS).
+- Branding: "Fruit" is used instead of "Apple" where appropriate, to avoid the appearance that this extension is official.
 
 ### Runtime model (current)
 
