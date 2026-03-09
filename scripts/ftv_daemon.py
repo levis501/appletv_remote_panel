@@ -46,6 +46,22 @@ def find_device(cfg, device_id):
     return None
 
 
+def _normalize_os_name(value):
+    if value is None:
+        return None
+    text = str(value)
+    if "." in text:
+        text = text.split(".")[-1]
+    return text
+
+
+def _pick_first_nonempty(*values):
+    for value in values:
+        if value is not None and str(value) != "":
+            return str(value)
+    return None
+
+
 # ── Daemon ────────────────────────────────────────────────────────────────────
 
 class FTVDaemon:
@@ -76,15 +92,19 @@ class FTVDaemon:
 
         loop = asyncio.get_running_loop()
         atvs = []
+        match = None
         # Unicast to the stored address first — much faster than mDNS broadcast
         if entry.get("address"):
             atvs = await pyatv.scan(loop, hosts=[entry["address"]], timeout=5)
-        if not atvs:
+            match = next((a for a in atvs if a.identifier == entry["id"]), None)
+        if match is None:
             atvs = await pyatv.scan(loop, identifier=entry["id"], timeout=5)
-        if not atvs:
+            if atvs:
+                match = atvs[0]
+        if match is None:
             return None
 
-        config = atvs[0]
+        config = match
         if "credentials_mrp" in entry:
             config.set_credentials(Protocol.MRP, entry["credentials_mrp"])
         if "credentials_companion" in entry:
@@ -218,6 +238,65 @@ class FTVDaemon:
                     for a in apple_tvs
                 ]
             }
+
+        if cmd == "device_details":
+            if not args:
+                raise ValueError("device_details requires device_id")
+
+            device_id = args[0]
+            cfg = load_config()
+            entry = find_device(cfg, device_id)
+            if entry is None:
+                entry = {
+                    "id": device_id,
+                    "name": args[2] if len(args) > 2 else device_id,
+                    "address": args[1] if len(args) > 1 else "",
+                }
+
+            details = {
+                "id": entry.get("id", device_id),
+                "name": entry.get("name") or device_id,
+                "address": entry.get("address", ""),
+                "selected": cfg.get("selected") == device_id,
+                "credentials": {
+                    "mrp": bool(entry.get("credentials_mrp")),
+                    "companion": bool(entry.get("credentials_companion")),
+                    "airplay": bool(entry.get("credentials_airplay")),
+                },
+            }
+
+            try:
+                config = await self._build_config(entry)
+            except Exception:
+                config = None
+
+            if config is not None:
+                details["address"] = _pick_first_nonempty(
+                    getattr(config, "address", None),
+                    details.get("address"),
+                )
+                info = getattr(config, "device_info", None)
+                if info is not None:
+                    details["model"] = _pick_first_nonempty(
+                        getattr(info, "model_str", None),
+                        getattr(info, "model", None),
+                    )
+                    details["operating_system"] = _normalize_os_name(
+                        getattr(info, "operating_system", None)
+                    )
+                    details["os_version"] = _pick_first_nonempty(
+                        getattr(info, "version", None),
+                        getattr(info, "operating_system_version", None),
+                    )
+                    details["build_number"] = _pick_first_nonempty(
+                        getattr(info, "build_number", None)
+                    )
+                    details["mac"] = _pick_first_nonempty(
+                        getattr(info, "mac", None),
+                        getattr(info, "mac_address", None),
+                    )
+
+            return details
 
         if cmd == "pair_begin":
             if len(args) < 3:

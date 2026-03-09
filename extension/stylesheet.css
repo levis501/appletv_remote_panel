@@ -393,6 +393,33 @@
     background-color: rgba(33, 150, 243, 0.15);
 }
 
+/* Device details popup */
+.fruittv-device-details-dialog {
+    min-width: 380px;
+}
+
+.fruittv-device-details-list {
+    spacing: 6px;
+    padding: 4px 0 8px 0;
+}
+
+.fruittv-device-details-row {
+    spacing: 2px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+.fruittv-device-details-key {
+    font-size: 11px;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.fruittv-device-details-value {
+    font-size: 12px;
+    color: black;
+}
+
 /* App Selection Window Grid and Buttons */
 .app-dialog-title {
     font-size: 14px;

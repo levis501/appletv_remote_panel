@@ -4,6 +4,7 @@ ftv_control.py — Fruit TV control helper for the GNOME Shell extension.
 
 Usage:
     atv_control.py scan
+    atv_control.py device_details <device_id>
     atv_control.py status <device_id>
     atv_control.py power_state <device_id>
     atv_control.py get_volume <device_id>
@@ -88,19 +89,41 @@ def die(msg):
     sys.exit(1)
 
 
+def _normalize_os_name(value):
+    if value is None:
+        return None
+    text = str(value)
+    if "." in text:
+        text = text.split(".")[-1]
+    return text
+
+
+def _pick_first_nonempty(*values):
+    for value in values:
+        if value is not None and str(value) != "":
+            return str(value)
+    return None
+
+
 async def build_config(entry):
     """Scan for device and apply stored credentials."""
     import pyatv
     from pyatv.const import Protocol
 
     loop = asyncio.get_running_loop()
-    atvs = await pyatv.scan(loop, identifier=entry["id"], timeout=5)
-    if not atvs and entry.get("address"):
+    atvs = []
+    match = None
+    if entry.get("address"):
         atvs = await pyatv.scan(loop, hosts=[entry["address"]], timeout=5)
-    if not atvs:
+        match = next((a for a in atvs if a.identifier == entry["id"]), None)
+    if match is None:
+        atvs = await pyatv.scan(loop, identifier=entry["id"], timeout=5)
+        if atvs:
+            match = atvs[0]
+    if match is None:
         return None
 
-    config = atvs[0]
+    config = match
     if "credentials_mrp" in entry:
         config.set_credentials(Protocol.MRP, entry["credentials_mrp"])
     if "credentials_companion" in entry:
@@ -147,6 +170,49 @@ async def cmd_scan_devices():
         }
         for a in found
     ]})
+
+
+async def cmd_device_details(entry, selected_id):
+    config = await build_config(entry)
+    details = {
+        "id": entry.get("id"),
+        "name": entry.get("name") or entry.get("id"),
+        "address": entry.get("address", ""),
+        "selected": entry.get("id") == selected_id,
+        "credentials": {
+            "mrp": bool(entry.get("credentials_mrp")),
+            "companion": bool(entry.get("credentials_companion")),
+            "airplay": bool(entry.get("credentials_airplay")),
+        },
+    }
+
+    if config is not None:
+        details["address"] = _pick_first_nonempty(
+            getattr(config, "address", None),
+            details.get("address"),
+        )
+        info = getattr(config, "device_info", None)
+        if info is not None:
+            details["model"] = _pick_first_nonempty(
+                getattr(info, "model_str", None),
+                getattr(info, "model", None),
+            )
+            details["operating_system"] = _normalize_os_name(
+                getattr(info, "operating_system", None)
+            )
+            details["os_version"] = _pick_first_nonempty(
+                getattr(info, "version", None),
+                getattr(info, "operating_system_version", None),
+            )
+            details["build_number"] = _pick_first_nonempty(
+                getattr(info, "build_number", None)
+            )
+            details["mac"] = _pick_first_nonempty(
+                getattr(info, "mac", None),
+                getattr(info, "mac_address", None),
+            )
+
+    out(details)
 
 
 async def cmd_status(entry):
@@ -390,6 +456,17 @@ def main():
             cfg["selected"] = remaining[0]["id"] if remaining else None
         save_config(cfg)
         out({"removed": device_id_rm})
+        return
+
+    if command == "device_details":
+        if len(args) < 2:
+            die("device_details requires a device_id argument")
+        device_id_details = args[1]
+        cfg = load_config()
+        entry_details = find_device(cfg, device_id_details)
+        if entry_details is None:
+            die(f"Device '{device_id_details}' not found in {CONFIG_PATH}")
+        asyncio.run(cmd_device_details(entry_details, cfg.get("selected")))
         return
 
     if len(args) < 2:

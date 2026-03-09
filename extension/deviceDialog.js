@@ -22,6 +22,83 @@ const FRUIT_OPTIONS = [
 ];
 
 
+const DETAILS_FALLBACK = 'Unknown';
+
+
+const DeviceDetailsDialog = GObject.registerClass(
+class DeviceDetailsDialog extends ModalDialog.ModalDialog {
+    _init(details) {
+        super._init({
+            styleClass: 'fruittv-device-dialog fruittv-device-details-dialog',
+            destroyOnClose: true,
+        });
+
+        const title = new St.Label({
+            text: _('Device Details'),
+            style_class: 'fruittv-device-dialog-title',
+        });
+        this.contentLayout.add_child(title);
+
+        const detailsBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'fruittv-device-details-list',
+            x_expand: true,
+        });
+        this.contentLayout.add_child(detailsBox);
+
+        const creds = details.credentials || {};
+        const pairedProtocols = [
+            creds.mrp ? 'MRP' : null,
+            creds.companion ? 'Companion' : null,
+            creds.airplay ? 'AirPlay' : null,
+        ].filter(Boolean).join(', ') || _('None');
+
+        const rows = [
+            [_('Name'), details.name],
+            [_('Identifier'), details.id],
+            [_('IP Address'), details.address],
+            [_('Model'), details.model],
+            [_('Operating System'), details.operating_system],
+            [_('OS Version'), details.os_version],
+            [_('Build Number'), details.build_number],
+            [_('MAC Address'), details.mac],
+            [_('Paired Protocols'), pairedProtocols],
+            [_('Selected Device'), details.selected ? _('Yes') : _('No')],
+        ];
+
+        for (const [label, value] of rows) {
+            const row = new St.BoxLayout({
+                vertical: true,
+                style_class: 'fruittv-device-details-row',
+                x_expand: true,
+            });
+
+            row.add_child(new St.Label({
+                text: label,
+                style_class: 'fruittv-device-details-key',
+                x_expand: true,
+            }));
+
+            row.add_child(new St.Label({
+                text: (value !== null && value !== undefined && String(value) !== '') ? String(value) : _(DETAILS_FALLBACK),
+                style_class: 'fruittv-device-details-value',
+                x_expand: true,
+            }));
+
+            detailsBox.add_child(row);
+        }
+
+        this.setButtons([
+            {
+                label: _('Close'),
+                action: () => this.close(),
+                key: Clutter.KEY_Escape,
+            },
+        ]);
+    }
+});
+
+
 export const DeviceDialog = GObject.registerClass(
 class DeviceDialog extends ModalDialog.ModalDialog {
     _init(indicator, onClosed) {
@@ -177,6 +254,14 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         });
         row.add_child(nameLabel);
 
+        const detailsBtn = new St.Button({
+            label: _('Details'),
+            style_class: 'fruittv-device-btn',
+            can_focus: true,
+        });
+        detailsBtn.connect('clicked', () => this._showDeviceDetails(device));
+        row.add_child(detailsBtn);
+
         if (device.known === false) {
             const setupBtn = new St.Button({
                 label: _('Setup'),
@@ -207,6 +292,24 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         }
 
         return row;
+    }
+
+    async _showDeviceDetails(device) {
+        this._setStatus(_('Loading device details...'));
+        try {
+            const [stdout] = await this._indicator._send(
+                'device_details',
+                device.id,
+                device.address || '',
+                device.name || ''
+            );
+            const details = JSON.parse(stdout);
+            const dialog = new DeviceDetailsDialog(details);
+            dialog.open();
+            this._setStatus('');
+        } catch (e) {
+            this._setStatus(`${_('Details error:')} ${e}`);
+        }
     }
 
     async _setupDevice(deviceId, address, name) {
