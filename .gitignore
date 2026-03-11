@@ -45,3 +45,7 @@ devices.json
 
 # GNOME Shell
 .local/share/gnome-shell/
+
+# LOCAL
+tmp/
+TODO_LOCAL.md
