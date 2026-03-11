@@ -41,7 +41,7 @@ const APP_COLOR_CLASSES = {
 // The app ID for the TV app — gets special fruit+TV rendering
 const TV_APP_ID = 'com.apple.TVWatchList';
 
-// Remote tint overlay colours (stored by ID in settings.json, applied as rgba)
+// Remote tint overlay colours (stored per-device in devices.json config)
 const REMOTE_TINT_RGBAS = {
     'red':    'rgba(220, 20, 20, 0.20)',
     'blue':   'rgba(20, 80, 220, 0.20)',
@@ -50,6 +50,10 @@ const REMOTE_TINT_RGBAS = {
     'orange': 'rgba(220, 100, 10, 0.20)',
     'gold':   'rgba(200, 160, 0, 0.20)',
 };
+
+function isValidTintId(tintId) {
+    return tintId === 'none' || tintId in REMOTE_TINT_RGBAS;
+}
 
 // Attach a custom hover tooltip label to any Clutter actor.
 // Positions itself below the pointer using global.get_pointer() after a short delay.
@@ -141,6 +145,7 @@ class FruitTVIndicator extends PanelMenu.Button {
         this._remoteWidget = null;
         this._appBtnWidgets = [];
         this._appBtnMap = new Map();
+        this._currentRemoteTintId = 'none';
 
         // Persistent daemon state
         this._daemon = null;
@@ -170,13 +175,45 @@ class FruitTVIndicator extends PanelMenu.Button {
         this._refreshAppButtons();
     }
 
-    // Update the remote tint: save setting and update the overlay's colour
-    _setRemoteTint(tintId) {
-        this._extension._saveRemoteTint(tintId);
-        if (this._tintOverlay) {
-            const rgba = this._extension.getRemoteTintRgba();
-            this._tintOverlay.set_style(rgba ? `background-color: ${rgba};` : '');
+    _applyTintOverlay(tintId) {
+        if (!this._tintOverlay) return;
+        const rgba = this._extension.getTintRgba(tintId);
+        this._tintOverlay.set_style(rgba ? `background-color: ${rgba};` : '');
+    }
+
+    async _loadSelectedDeviceTint() {
+        let tintId = 'none';
+        if (this._selectedId) {
+            try {
+                const [stdout] = await this._send('get_config_value', this._selectedId, 'remote_tint');
+                const res = JSON.parse(stdout);
+                if (typeof res.value === 'string' && isValidTintId(res.value))
+                    tintId = res.value;
+            } catch (e) {
+                log(`FruitTV-Remote: failed to load remote tint for ${this._selectedId}: ${e}`);
+            }
         }
+
+        this._currentRemoteTintId = tintId;
+        this._applyTintOverlay(tintId);
+    }
+
+    getSelectedRemoteTintId() {
+        return this._currentRemoteTintId || 'none';
+    }
+
+    // Update the selected device tint and persist in per-device config
+    _setRemoteTint(tintId) {
+        const nextTintId = isValidTintId(tintId) ? tintId : 'none';
+        this._currentRemoteTintId = nextTintId;
+        this._applyTintOverlay(nextTintId);
+
+        if (!this._selectedId)
+            return;
+
+        this._send('set_config_value', this._selectedId, 'remote_tint', JSON.stringify(nextTintId)).catch(e => {
+            log(`FruitTV-Remote: failed to save remote tint for ${this._selectedId}: ${e}`);
+        });
     }
 
     _buildMenu() {
@@ -225,7 +262,7 @@ class FruitTVIndicator extends PanelMenu.Button {
         log(`FruitTV-Remote: loading remote graphic ${this._extension.path}/ftv_remote.png`);
 
         // Tint overlay — full-remote coloured layer, non-interactive, below hit regions
-        const tintRgba = this._extension.getRemoteTintRgba();
+        const tintRgba = this._extension.getTintRgba(this._currentRemoteTintId);
         this._tintOverlay = new St.Widget({ reactive: false });
         if (tintRgba)
             this._tintOverlay.set_style(`background-color: ${tintRgba};`);
@@ -595,6 +632,10 @@ class FruitTVIndicator extends PanelMenu.Button {
                 this._updatePowerStatus(this._selectedId);
                 this._startPolling();
                 this._validateFavorites();
+                await this._loadSelectedDeviceTint();
+            } else {
+                this._currentRemoteTintId = 'none';
+                this._applyTintOverlay('none');
             }
         } catch (e) {
             log(`FruitTV-Remote _loadDevices error: ${e}`);
@@ -729,6 +770,7 @@ class FruitTVIndicator extends PanelMenu.Button {
         const state = this._powerStates.get(deviceId);
         this._setRemoteReady(state === 'on' || state === 'off');
         this._startPolling();
+        this._loadSelectedDeviceTint();
     }
 
     // --- Polling for metadata ---
@@ -928,14 +970,14 @@ export default class FruitTVRemoteExtension extends Extension {
         this._appColors = {};
     }
 
-    // ── Settings (logo fruit, remote tint) ───────────────────────────────
+    // ── Settings (logo fruit) ────────────────────────────────────────────
 
     _settingsPath() {
         return `${GLib.get_home_dir()}/.config/appletv-remote/settings.json`;
     }
 
     _loadLogoFruit() {
-        this._settings = { logo_fruit: 'lemon', remote_tint: 'red' };
+        this._settings = { logo_fruit: 'lemon' };
         try {
             const [ok, bytes] = GLib.file_get_contents(this._settingsPath());
             if (ok) {
@@ -965,21 +1007,12 @@ export default class FruitTVRemoteExtension extends Extension {
         this._writeSettings();
     }
 
-    _saveRemoteTint(tintId) {
-        this._settings = { ...this._settings, remote_tint: tintId };
-        this._writeSettings();
-    }
-
     getLogoFruit() {
         return this._logoFruit || 'lemon';
     }
 
-    getRemoteTintId() {
-        return this._settings?.remote_tint ?? 'none';
-    }
-
-    getRemoteTintRgba() {
-        return REMOTE_TINT_RGBAS[this.getRemoteTintId()] ?? null;
+    getTintRgba(tintId) {
+        return REMOTE_TINT_RGBAS[tintId] ?? null;
     }
 
     // ── App colour management ──────────────────────────────────────────

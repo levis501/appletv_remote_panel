@@ -22,6 +22,7 @@ const FRUIT_OPTIONS = [
 ];
 
 const TINT_OPTIONS = [
+    { id: 'none',   label: 'None'   },
     { id: 'red',    label: 'Red'    },
     { id: 'blue',   label: 'Blue'   },
     { id: 'green',  label: 'Green'  },
@@ -205,7 +206,7 @@ class DeviceDialog extends ModalDialog.ModalDialog {
             text: _('Remote Tint:'),
             style_class: 'fruittv-device-name',
         }));
-        const currentTint = this._indicator._extension.getRemoteTintId();
+        const currentTint = this._indicator.getSelectedRemoteTintId();
         tintCol.add_child(this._buildDropdown(
             TINT_OPTIONS, currentTint, (id) => this._selectTint(id)
         ));
