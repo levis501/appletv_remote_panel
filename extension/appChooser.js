@@ -350,7 +350,7 @@ class AppChooser extends St.BoxLayout {
             apps.sort((a, b) => a.name.localeCompare(b.name));
 
             // Remove apps from favorites if they no longer exist on device
-            const favorites = this._extension.getFavoriteAppObjects();
+            const favorites = this._extension.getFavoriteAppObjects(this._atvDevice.id);
             const appIds = new Set(apps.map(a => a.id));
             for (const fav of favorites) {
                 if (!appIds.has(fav.id)) {

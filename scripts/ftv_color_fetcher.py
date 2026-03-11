@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """ftv_color_fetcher.py — Fetch dominant colours from app icons via the iTunes API.
 
-For each favourite app in ~/.config/appletv-remote/apps.json, and then all other
+For each favourite app in ~/.config/fruittv-remote/apps.json, and then all other
 apps listed there (in alphabetical order), this script:
   1. Looks up the app icon URL from the iTunes Search API using the bundle ID.
   2. Falls back to an iTunes name search for third-party apps not found by ID.
   3. Downloads the icon image.
   4. Extracts the dominant vibrant colour (hue-bucket weighted average).
   5. Picks white or black text for WCAG contrast.
-  6. Writes results atomically to ~/.config/appletv-remote/app_colors.json.
+    6. Writes results atomically to ~/.config/fruittv-remote/app_colors.json.
 
 Already-processed apps (including failed ones stored as null) are skipped on
 subsequent runs, so the script is safe to re-run whenever new favourites are added.
@@ -25,7 +25,7 @@ import urllib.parse
 from pathlib import Path
 from collections import defaultdict
 
-CONFIG_DIR    = Path.home() / '.config' / 'appletv-remote'
+CONFIG_DIR    = Path.home() / '.config' / 'fruittv-remote'
 APPS_CONFIG   = CONFIG_DIR / 'apps.json'
 COLORS_CONFIG = CONFIG_DIR / 'app_colors.json'
 ICONS_DIR     = CONFIG_DIR / 'icons'
@@ -42,10 +42,35 @@ def load_apps_config():
     try:
         with open(APPS_CONFIG) as f:
             data = json.load(f)
-        favorites = data.get('favorites', [])
+
+        # Backward-compatible favorites loading:
+        # - legacy: {"favorites": [...]} (global list)
+        # - current: {"favorites_by_device": {"<id>": [...]}}
+        favorites = []
+        seen_ids = set()
+
+        def add_entries(entries):
+            if not isinstance(entries, list):
+                return
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                app_id = entry.get('id')
+                if not isinstance(app_id, str) or not app_id or app_id in seen_ids:
+                    continue
+                seen_ids.add(app_id)
+                name = entry.get('name') if isinstance(entry.get('name'), str) else app_id
+                favorites.append({'id': app_id, 'name': name})
+
+        favorites_by_device = data.get('favorites_by_device', {})
+        if isinstance(favorites_by_device, dict):
+            for entries in favorites_by_device.values():
+                add_entries(entries)
+
+        # Keep legacy support if present (and merge any unique IDs).
+        add_entries(data.get('favorites', []))
+
         apps = data.get('apps', [])
-        if not isinstance(favorites, list):
-            favorites = []
         if not isinstance(apps, list):
             apps = []
         return favorites, apps

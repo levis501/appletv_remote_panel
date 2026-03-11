@@ -10,7 +10,8 @@ EXTENSION_UUID="appletv-remote@local"
 EXTENSION_SRC="${SCRIPT_DIR}/extension"
 EXTENSION_DEST="${HOME}/.local/share/gnome-shell/extensions/${EXTENSION_UUID}"
 
-HELPER_DIR="${HOME}/.config/appletv-remote"
+HELPER_DIR="${HOME}/.config/fruittv-remote"
+OLD_HELPER_DIR="${HOME}/.config/appletv-remote"
 PYTHON_VENV="${HELPER_DIR}/venv"
 VENV_PYTHON="${PYTHON_VENV}/bin/python3"
 
@@ -45,6 +46,13 @@ fi
 # ── 2. Create config directory ────────────────────────────────────────────────
 echo ""
 echo "[2/7] Creating config directory..."
+
+if [ ! -d "${HELPER_DIR}" ] && [ -d "${OLD_HELPER_DIR}" ]; then
+    mkdir -p "${HELPER_DIR}"
+    cp -a "${OLD_HELPER_DIR}/." "${HELPER_DIR}/"
+    echo "  Migrated existing config from ${OLD_HELPER_DIR}"
+fi
+
 mkdir -p "${HELPER_DIR}"
 mkdir -p "${HELPER_DIR}/icons"   # cache dir for downloaded app icons
 echo "  ${HELPER_DIR}"
@@ -183,7 +191,7 @@ echo ""
 if [ -f "${HELPER_DIR}/devices.json" ]; then
     "${VENV_PYTHON}" <<'PYEOF'
 import json, os
-p = os.path.expanduser("~/.config/appletv-remote/devices.json")
+p = os.path.expanduser("~/.config/fruittv-remote/devices.json")
 try:
     cfg = json.load(open(p))
     devices = cfg.get("devices", [])

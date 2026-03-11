@@ -126,7 +126,7 @@ class FruitTVIndicator extends PanelMenu.Button {
         // Pre-populate selected device from config so we can preconnect on first open
         this._selectedId = null;
         try {
-            const cfgPath = `${GLib.get_home_dir()}/.config/appletv-remote/devices.json`;
+            const cfgPath = `${GLib.get_home_dir()}/.config/fruittv-remote/devices.json`;
             const [ok, bytes] = GLib.file_get_contents(cfgPath);
             if (ok) {
                 const cfg = JSON.parse(new TextDecoder().decode(bytes));
@@ -385,7 +385,7 @@ class FruitTVIndicator extends PanelMenu.Button {
         this._appBtnWidgets = [];
         this._appBtnMap.clear();
 
-        const favorites = this._extension.getFavoriteAppObjects();
+        const favorites = this._extension.getFavoriteAppObjects(this._selectedId);
         if (favorites.length === 0) return;
 
         for (let i = 0; i < favorites.length; i++) {
@@ -651,12 +651,11 @@ class FruitTVIndicator extends PanelMenu.Button {
             if (apps.length === 0) return;
 
             const config = this._extension._readAppsConfig();
-            const favorites = (config.favorites.length > 0 || config.hasFile)
-                ? [...config.favorites]
-                : [...DEFAULT_FAVORITE_APPS];
+            const favorites = this._extension.getFavoriteAppObjects(this._selectedId);
 
             // Save full app list to enable icon downloading for all apps
-            this._extension._saveAppsConfig(favorites, apps);
+            config.apps = apps;
+            this._extension._saveAppsConfig(config);
             this._extension._startColorFetcher();
 
             // Validate favorites: remove any that no longer exist on device
@@ -824,7 +823,7 @@ class FruitTVIndicator extends PanelMenu.Button {
         if (this._daemon && !this._daemon.get_if_exited()) return;
         if (this._daemon) this._cleanupDaemon();
 
-        const daemonPath = `${GLib.get_home_dir()}/.config/appletv-remote/ftv_daemon.py`;
+        const daemonPath = `${GLib.get_home_dir()}/.config/fruittv-remote/ftv_daemon.py`;
         this._daemon = new Gio.Subprocess({
             argv: [daemonPath],
             flags: Gio.SubprocessFlags.STDIN_PIPE |
@@ -973,7 +972,7 @@ export default class FruitTVRemoteExtension extends Extension {
     // ── Settings (logo fruit) ────────────────────────────────────────────
 
     _settingsPath() {
-        return `${GLib.get_home_dir()}/.config/appletv-remote/settings.json`;
+        return `${GLib.get_home_dir()}/.config/fruittv-remote/settings.json`;
     }
 
     _loadLogoFruit() {
@@ -1018,7 +1017,7 @@ export default class FruitTVRemoteExtension extends Extension {
     // ── App colour management ──────────────────────────────────────────
 
     _colorsConfigPath() {
-        return `${GLib.get_home_dir()}/.config/appletv-remote/app_colors.json`;
+        return `${GLib.get_home_dir()}/.config/fruittv-remote/app_colors.json`;
     }
 
     _loadAppColors() {
@@ -1055,8 +1054,8 @@ export default class FruitTVRemoteExtension extends Extension {
     }
 
     _startColorFetcher() {
-        const venvPython  = `${GLib.get_home_dir()}/.config/appletv-remote/venv/bin/python3`;
-        const fetcherPath = `${GLib.get_home_dir()}/.config/appletv-remote/ftv_color_fetcher.py`;
+        const venvPython  = `${GLib.get_home_dir()}/.config/fruittv-remote/venv/bin/python3`;
+        const fetcherPath = `${GLib.get_home_dir()}/.config/fruittv-remote/ftv_color_fetcher.py`;
         try {
             const fetcher = new Gio.Subprocess({
                 argv: [venvPython, fetcherPath],
@@ -1071,7 +1070,29 @@ export default class FruitTVRemoteExtension extends Extension {
     // ── App favorites config ───────────────────────────────────────────
 
     _appsConfigPath() {
-        return `${GLib.get_home_dir()}/.config/appletv-remote/apps.json`;
+        return `${GLib.get_home_dir()}/.config/fruittv-remote/apps.json`;
+    }
+
+    _sanitizeFavoriteEntries(entries) {
+        if (!Array.isArray(entries))
+            return [];
+
+        const seen = new Set();
+        const out = [];
+        for (const entry of entries) {
+            if (!entry || typeof entry.id !== 'string' || entry.id.length === 0)
+                continue;
+            if (seen.has(entry.id))
+                continue;
+            seen.add(entry.id);
+            out.push({
+                id: entry.id,
+                name: (typeof entry.name === 'string' && entry.name.length > 0)
+                    ? entry.name
+                    : entry.id,
+            });
+        }
+        return out;
     }
 
     _readAppsConfig() {
@@ -1079,19 +1100,29 @@ export default class FruitTVRemoteExtension extends Extension {
             const [ok, bytes] = GLib.file_get_contents(this._appsConfigPath());
             if (ok) {
                 const cfg = JSON.parse(new TextDecoder().decode(bytes));
-                const favorites = Array.isArray(cfg.favorites) ? cfg.favorites : [];
+                const legacyFavorites = this._sanitizeFavoriteEntries(cfg.favorites);
+                const favoritesByDevice = {};
+                if (cfg.favorites_by_device && typeof cfg.favorites_by_device === 'object') {
+                    for (const [deviceId, entries] of Object.entries(cfg.favorites_by_device)) {
+                        favoritesByDevice[deviceId] = this._sanitizeFavoriteEntries(entries);
+                    }
+                }
                 const apps = Array.isArray(cfg.apps) ? cfg.apps : [];
-                return { favorites, apps, hasFile: true };
+                return { favoritesByDevice, legacyFavorites, apps, hasFile: true };
             }
         } catch (_e) {}
-        return { favorites: [], apps: [], hasFile: false };
+        return { favoritesByDevice: {}, legacyFavorites: [], apps: [], hasFile: false };
     }
 
-    _saveAppsConfig(favorites, apps) {
+    _saveAppsConfig(config) {
         try {
             const file = Gio.File.new_for_path(this._appsConfigPath());
+            const payload = {
+                favorites_by_device: config.favoritesByDevice || {},
+                apps: Array.isArray(config.apps) ? config.apps : [],
+            };
             file.replace_contents(
-                new TextEncoder().encode(JSON.stringify({ favorites, apps }, null, 2)),
+                new TextEncoder().encode(JSON.stringify(payload, null, 2)),
                 null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null
             );
         } catch (e) {
@@ -1099,26 +1130,41 @@ export default class FruitTVRemoteExtension extends Extension {
         }
     }
 
-    getFavoriteAppObjects() {
-        const { favorites, hasFile } = this._readAppsConfig();
-        if (favorites.length > 0) {
-            return favorites;
-        }
-        if (!hasFile) {
+    _getFavoriteAppObjectsForDevice(config, deviceId) {
+        if (deviceId && Array.isArray(config.favoritesByDevice[deviceId]))
+            return [...config.favoritesByDevice[deviceId]];
+        if (config.legacyFavorites.length > 0)
+            return [...config.legacyFavorites];
+        if (!config.hasFile)
             return [...DEFAULT_FAVORITE_APPS];
+        return [];
+    }
+
+    _ensureDeviceFavorites(config, deviceId) {
+        if (!deviceId)
+            return [];
+        if (!Array.isArray(config.favoritesByDevice[deviceId])) {
+            config.favoritesByDevice[deviceId] = this._getFavoriteAppObjectsForDevice(config, deviceId);
         }
-        return favorites;
+        return config.favoritesByDevice[deviceId];
     }
 
-    getFavoriteApps(_deviceId) {
-        return this.getFavoriteAppObjects().map(a => a.id);
-    }
-
-    setAppFavorite(_deviceId, app, isFavorite) {
+    getFavoriteAppObjects(deviceId = null) {
         const config = this._readAppsConfig();
-        const favorites = (config.favorites.length > 0 || config.hasFile)
-            ? [...config.favorites]
-            : [...DEFAULT_FAVORITE_APPS];
+        const resolvedDeviceId = deviceId || this.getSelectedDevice();
+        return this._getFavoriteAppObjectsForDevice(config, resolvedDeviceId);
+    }
+
+    getFavoriteApps(deviceId) {
+        return this.getFavoriteAppObjects(deviceId).map(a => a.id);
+    }
+
+    setAppFavorite(deviceId, app, isFavorite) {
+        if (!deviceId)
+            return false;
+
+        const config = this._readAppsConfig();
+        const favorites = [...this._ensureDeviceFavorites(config, deviceId)];
         const idx = favorites.findIndex(a => a.id === app.id);
         if (isFavorite && idx === -1) {
             if (favorites.length >= 15) {
@@ -1131,7 +1177,8 @@ export default class FruitTVRemoteExtension extends Extension {
         } else {
             return true; // no change needed
         }
-        this._saveAppsConfig(favorites, config.apps || []);
+        config.favoritesByDevice[deviceId] = favorites;
+        this._saveAppsConfig(config);
         return true;
     }
 
@@ -1142,7 +1189,7 @@ export default class FruitTVRemoteExtension extends Extension {
         if (app.id === TV_APP_ID) return null;
 
         const iconDir  = `${this.path}/icons/apps`;
-        const cacheDir = `${GLib.get_home_dir()}/.config/appletv-remote/icons`;
+        const cacheDir = `${GLib.get_home_dir()}/.config/fruittv-remote/icons`;
 
         for (const p of [
             `${iconDir}/${app.id}.png`,
@@ -1167,10 +1214,9 @@ export default class FruitTVRemoteExtension extends Extension {
         }
         const apps = res.apps || [];
         const config = this._readAppsConfig();
-        const favorites = (config.favorites.length > 0 || config.hasFile)
-            ? config.favorites
-            : [...DEFAULT_FAVORITE_APPS];
-        this._saveAppsConfig(favorites, apps);
+        this._ensureDeviceFavorites(config, deviceId);
+        config.apps = apps;
+        this._saveAppsConfig(config);
         this._startColorFetcher();
         return apps;
     }

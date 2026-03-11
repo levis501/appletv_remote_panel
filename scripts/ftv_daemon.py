@@ -18,7 +18,7 @@ import json
 import os
 import sys
 
-CONFIG_PATH = os.path.expanduser("~/.config/appletv-remote/devices.json")
+CONFIG_PATH = os.path.expanduser("~/.config/fruittv-remote/devices.json")
 
 
 # ── Config helpers ─────────────────────────────────────────────────────────────

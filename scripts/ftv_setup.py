@@ -3,7 +3,7 @@
 ftv_setup.py — Fruit TV device manager.
 
 Run this interactively to add, remove, or re-pair Fruit TVs on your network.
-Credentials are saved to ~/.config/appletv-remote/devices.json.
+Credentials are saved to ~/.config/fruittv-remote/devices.json.
 
 Usage:
     python3 atv_setup.py
@@ -14,7 +14,7 @@ import json
 import os
 import sys
 
-CONFIG_DIR  = os.path.expanduser("~/.config/appletv-remote")
+CONFIG_DIR  = os.path.expanduser("~/.config/fruittv-remote")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "devices.json")
 
 # Check if MRP pairing should be attempted (default: true)
