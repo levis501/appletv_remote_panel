@@ -52,15 +52,11 @@ def print_device_list(cfg):
         print(f"  [{i}] {d['name']:20s}  [{has_mrp} {has_comp}]{marker}")
 
 
-async def discover_devices(hosts=None):
+async def discover_devices():
     import pyatv
     from pyatv.const import OperatingSystem
-    if hosts:
-        print(f"Scanning by IP ({', '.join(hosts)}) ...")
-        found = await pyatv.scan(asyncio.get_event_loop(), timeout=5, hosts=hosts)
-    else:
-        print("Scanning network for Fruit TVs (5 second timeout)...")
-        found = await pyatv.scan(asyncio.get_event_loop(), timeout=5)
+    print("Scanning network for Fruit TVs (5 second timeout)...")
+    found = await pyatv.scan(asyncio.get_event_loop(), timeout=5)
     # Filter to only include Fruit TVs (tvOS devices)
     return [
         a for a in found
@@ -217,20 +213,92 @@ async def cmd_add_devices(cfg):
     save_config(cfg)
 
 
-async def cmd_add_devices_by_ip(cfg):
-    """Scan by IP address (for cross-VLAN where mDNS doesn't reach)."""
-    raw = input("Enter IP address(es), comma-separated: ").strip()
-    if not raw:
-        return
-    hosts = [h.strip() for h in raw.split(",") if h.strip()]
-    atvs = await discover_devices(hosts=hosts)
+async def cmd_pair_by_ip_direct(cfg):
+    """Pair directly by IP — no mDNS scan (for cross-VLAN setups)."""
+    from ipaddress import IPv4Address
+    from pyatv.conf import AppleTV
+    from pyatv.core import MutableService
+    from pyatv.const import Protocol, PairingRequirement
 
-    if not atvs:
-        print("\nNo Fruit TVs found at those IPs.")
-        print("Check that the device is reachable (ping) and firewall allows port 49152+.")
+    ip_raw = input("Enter Fruit TV IP address: ").strip()
+    if not ip_raw:
         return
 
-    await _pair_found_devices(atvs, cfg)
+    try:
+        ip = IPv4Address(ip_raw)
+    except ValueError:
+        print(f"  Invalid IP address: {ip_raw}")
+        return
+
+    default_name = f"Fruit TV at {ip}"
+    name_raw = input(f"Device name [{default_name}]: ").strip()
+    name = name_raw if name_raw else default_name
+
+    # Use IP string as the device ID — we don't have the real hardware ID
+    # without mDNS, but static IPs make this stable.
+    device_id = str(ip)
+
+    existing = next((d for d in cfg.get("devices", []) if d["id"] == device_id), None)
+    entry = {
+        "name":    name,
+        "id":      device_id,
+        "address": str(ip),
+    }
+    if existing:
+        # Preserve already-paired credentials so user can re-pair one protocol
+        for key in ("credentials_mrp", "credentials_companion", "config"):
+            if key in existing:
+                entry[key] = existing[key]
+        print(f"\n  Re-pairing existing entry for '{existing['name']}'.")
+    else:
+        print(f"\n  New device: '{name}' at {ip}")
+
+    print(f"\n{'='*55}")
+    print(f"  Device: {name}")
+    print(f"  IP:     {ip}")
+    print("="*55)
+
+    # tvOS 15.4+ removed MRP pairing. We always pair Companion (port 49153).
+    # MRP pairing is attempted only if ATTEMPT_MRP=true env var is set AND
+    # it succeeds — it's expected to fail on modern tvOS.
+    COMPANION_PORT = 49153
+
+    if ATTEMPT_MRP:
+        print("\nStep 1/2: MRP pairing (may not be supported on tvOS 15.4+)...")
+        mrp_config = AppleTV(ip, name)
+        mrp_svc = MutableService(str(ip), Protocol.MRP, 49152, {})
+        mrp_svc._pairing_requirement = PairingRequirement.Optional
+        mrp_config.add_service(mrp_svc)
+        mrp_creds = await pair_protocol(mrp_config, "mrp")
+        if mrp_creds:
+            entry["credentials_mrp"] = mrp_creds
+            entry.setdefault("services", {})["mrp_port"] = 49152
+        else:
+            print("  (MRP not supported on this device — continuing with Companion only)")
+        print()
+
+    print("Pairing Companion protocol (port 49153)...")
+    comp_config = AppleTV(ip, name)
+    comp_svc = MutableService(str(ip), Protocol.Companion, COMPANION_PORT, {})
+    comp_svc._pairing_requirement = PairingRequirement.Optional
+    comp_config.add_service(comp_svc)
+    comp_creds = await pair_protocol(comp_config, "companion")
+    if comp_creds:
+        entry["credentials_companion"] = comp_creds
+        entry.setdefault("services", {})["companion_port"] = COMPANION_PORT
+    else:
+        print("  WARNING: Companion pairing failed. The device will not be usable.")
+
+    if existing:
+        idx = cfg["devices"].index(existing)
+        cfg["devices"][idx] = entry
+    else:
+        cfg["devices"].append(entry)
+
+    if cfg.get("selected") is None:
+        cfg["selected"] = device_id
+
+    print(f"\n  '{name}' configured.")
     save_config(cfg)
 
 
@@ -296,7 +364,7 @@ async def setup():
         elif choice == "a":
             await cmd_add_devices(cfg)
         elif choice == "i":
-            await cmd_add_devices_by_ip(cfg)
+            await cmd_pair_by_ip_direct(cfg)
         elif choice == "r" and devices:
             cmd_remove_device(cfg)
         else:

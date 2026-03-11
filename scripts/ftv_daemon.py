@@ -78,37 +78,43 @@ def _extract_service_ports(config):
 def _build_manual_config(entry):
     """Build a pyatv AppleTV config from the stored address and service ports,
     bypassing mDNS discovery entirely.  Returns None when there is not enough
-    stored data (address or ports missing).
+    stored data to build any useful connection.
 
-    This allows connecting to a device outside the local subnet — where mDNS
-    broadcast cannot reach — as long as the device's IP address is routable
-    and the service ports were previously cached from a scan on the same subnet.
+    Supports MRP+Companion or Companion-only (tvOS 15.4+ dropped MRP pairing).
     """
     from pyatv.conf import AppleTV, ManualService
     from pyatv.const import Protocol, PairingRequirement
     from ipaddress import IPv4Address
 
     address = entry.get("address")
+    if not address:
+        return None
+
     services_data = entry.get("services", {})
     mrp_port = services_data.get("mrp_port")
+    # Default Companion port is 49153; fall back to stored or default.
+    companion_port = services_data.get("companion_port", 49153)
 
-    # Require address, MRP port, and MRP credentials to build a useful config.
-    if not address or not mrp_port or not entry.get("credentials_mrp"):
+    has_mrp = mrp_port and entry.get("credentials_mrp")
+    has_companion = companion_port and entry.get("credentials_companion")
+
+    if not has_mrp and not has_companion:
         return None
 
     config = AppleTV(IPv4Address(address), entry.get("name", ""))
-    config.add_service(ManualService(
-        entry.get("id"),
-        Protocol.MRP,
-        mrp_port,
-        {},
-        pairing_requirement=PairingRequirement.NotNeeded,
-    ))
 
-    companion_port = services_data.get("companion_port")
-    if companion_port and entry.get("credentials_companion"):
+    if has_mrp:
         config.add_service(ManualService(
-            None,
+            entry.get("id"),
+            Protocol.MRP,
+            mrp_port,
+            {},
+            pairing_requirement=PairingRequirement.NotNeeded,
+        ))
+
+    if has_companion:
+        config.add_service(ManualService(
+            entry.get("id") if not has_mrp else None,
             Protocol.Companion,
             companion_port,
             {},
@@ -198,37 +204,32 @@ class FTVDaemon:
     async def _build_config(self, entry):
         """Resolve device address/services and apply stored credentials.
 
-        Scan order:
-          1. Unicast mDNS to the stored IP (fast; works cross-subnet when IP is routable).
-          2. mDNS broadcast by identifier (works on same subnet; catches IP changes).
-          3. Direct-connect fallback using stored address + cached service ports,
-             bypassing mDNS entirely (enables cross-subnet access when mDNS is blocked).
+        For cross-VLAN devices (no mDNS), goes directly to manual config.
+        Falls back to mDNS scan only when manual config isn't possible.
         """
         import pyatv
         from pyatv.const import Protocol
 
         loop = asyncio.get_running_loop()
-        atvs = []
-        match = None
-        # Unicast to the stored address first — much faster than mDNS broadcast
-        if entry.get("address"):
-            atvs = await pyatv.scan(loop, hosts=[entry["address"]], timeout=5)
-            match = next((a for a in atvs if a.identifier == entry["id"]), None)
-        if match is None:
-            atvs = await pyatv.scan(loop, identifier=entry["id"], timeout=5)
-            if atvs:
-                match = atvs[0]
 
-        if match is not None:
-            config = match
-            # Persist fresh address + service ports for cross-subnet fallback.
-            self._persist_device_address(entry["id"], config)
-        else:
-            # Cross-subnet fallback: construct config directly from the stored
-            # address and port cache, skipping mDNS entirely.
-            config = _build_manual_config(entry)
-            if config is None:
+        # Try manual config first — works cross-VLAN without mDNS.
+        config = _build_manual_config(entry)
+
+        if config is None:
+            # No stored ports/creds — attempt mDNS discovery.
+            match = None
+            if entry.get("address"):
+                atvs = await pyatv.scan(loop, hosts=[entry["address"]], timeout=5)
+                match = next((a for a in atvs if a.identifier == entry["id"]), None)
+            if match is None:
+                atvs = await pyatv.scan(loop, identifier=entry["id"], timeout=5)
+                if atvs:
+                    match = atvs[0]
+            if match is None:
                 return None
+            config = match
+            # Persist fresh address + service ports for future cross-VLAN use.
+            self._persist_device_address(entry["id"], config)
 
         if "credentials_mrp" in entry:
             config.set_credentials(Protocol.MRP, entry["credentials_mrp"])
