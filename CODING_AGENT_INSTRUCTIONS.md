@@ -14,7 +14,7 @@ The project is a GNOME Shell remote for Apple TV devices.
 
 ### Runtime model (current)
 
-- `extension/extension.js` communicates with `scripts/atv_daemon.py` using newline-delimited JSON over stdin/stdout.
+- `extension/extension.js` communicates with `scripts/ftv_daemon.py` using newline-delimited JSON over stdin/stdout.
 - The daemon is persistent within a shell session and keeps live device connections cached for low-latency controls.
 
 Example protocol:
@@ -25,8 +25,8 @@ Example protocol:
 
 ### Supporting CLIs
 
-- `scripts/atv_control.py` is a one-shot command tool for direct testing/debugging.
-- `scripts/atv_setup.py` handles scanning, pairing, and saved device credentials.
+- `scripts/ftv_control.py` is a one-shot command tool for direct testing/debugging.
+- `scripts/ftv_setup.py` handles scanning, pairing, and saved device credentials.
 
 ## 2) Project Index
 
@@ -41,10 +41,10 @@ Use this index as a quick map for where to make changes.
 
 ### Python backend (`scripts/`)
 
-- `scripts/atv_daemon.py`: Persistent Apple TV command daemon used by extension runtime.
-- `scripts/atv_control.py`: One-shot command runner for manual testing from terminal.
-- `scripts/atv_setup.py`: Interactive setup/pairing manager for devices.
-- `scripts/atv_color_fetcher.py`: Fetches app icons and writes extracted colors.
+- `scripts/ftv_daemon.py`: Persistent Fruit TV command daemon used by extension runtime.
+- `scripts/ftv_control.py`: One-shot command runner for manual testing from terminal.
+- `scripts/ftv_setup.py`: Interactive setup/pairing manager for devices.
+- `scripts/ftv_color_fetcher.py`: Fetches app icons and writes extracted colors.
 - `scripts/ftv_daemon.py`, `scripts/ftv_control.py`, `scripts/ftv_setup.py`, `scripts/ftv_color_fetcher.py`: Fire TV-related helpers.
 - `scripts/test_pyatv_pair.py`: Pairing-oriented test script.
 
@@ -71,7 +71,7 @@ Use this index as a quick map for where to make changes.
 
 ### Runtime files outside repo
 
-- `~/.config/appletv-remote/devices.json`: Device credentials/config.
+- `~/.config/appletv-remote/devices.json`: Device credentials/config. Each device entry may contain a `"services"` key (`{"mrp_port": N, "companion_port": N}`) cached from the last successful mDNS scan; used by the cross-subnet direct-connect fallback.
 - `~/.config/appletv-remote/apps.json`: Favorites and last-seen app list.
 - `~/.config/appletv-remote/app_colors.json`: Cached app color mapping.
 
@@ -92,9 +92,9 @@ Important: editing files in this repo does not affect the live extension until `
 
 ## 4) Backend Guidelines
 
-- When adding a new Apple TV command, update both:
-  - `scripts/atv_daemon.py` dispatcher.
-  - `scripts/atv_control.py` command handler.
+- When adding a new Fruit TV command, update both:
+  - `scripts/ftv_daemon.py` dispatcher.
+  - `scripts/ftv_control.py` command handler.
 - Keep command names and argument order aligned between daemon and CLI.
 - Use JSON success/error helpers consistently (`_respond(...)` in daemon, `out()`/`die()` in CLI).
 - Pairing order policy: MRP first (required), Companion optional but recommended (tvOS 15+).
@@ -102,15 +102,15 @@ Important: editing files in this repo does not affect the live extension until `
 Manual command checks:
 
 ```bash
-~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py list_devices
-~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py status <device_id>
-~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py play_pause <device_id>
+~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/ftv_control.py list_devices
+~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/ftv_control.py status <device_id>
+~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/ftv_control.py play_pause <device_id>
 ```
 
 If auth breaks, rerun setup:
 
 ```bash
-~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_setup.py
+~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/ftv_setup.py
 ```
 
 ## 5) Frontend Guidelines
@@ -141,13 +141,13 @@ Use logs to inspect frontend exceptions and backend stderr surfaced by subproces
 When diagnosing command failures:
 
 1. Verify `list_devices` and credentials.
-2. Run the equivalent command via `atv_control.py` directly.
-3. Re-pair with `atv_setup.py` if credentials are stale.
+2. Run the equivalent command via `ftv_control.py` directly.
+3. Re-pair with `ftv_setup.py` if credentials are stale.
 
 ## 7) Feature Implementation Checklist
 
 1. Decide if change belongs in backend, frontend, or both.
-2. Add/modify backend command path (`atv_daemon.py` and `atv_control.py`).
+2. Add/modify backend command path (`ftv_daemon.py` and `ftv_control.py`).
 3. Wire frontend interaction in `extension/`.
 4. Update `install.sh` if new Python dependencies are required.
 5. Reinstall via `./install.sh` and validate behavior with logs/tests.
@@ -173,7 +173,7 @@ Examples of updates that require refreshing this file:
 journalctl /usr/bin/gnome-shell -f | grep -i appletv
 
 # Test backend quickly
-~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/atv_control.py list_devices
+~/.config/appletv-remote/venv/bin/python3 ~/.config/appletv-remote/ftv_control.py list_devices
 ```
 
 ---
@@ -186,43 +186,43 @@ Use this index to quickly locate any concept, class, function, command, or CSS s
 
 ### 10.1 Daemon Command Strings (`"cmd"` values in JSON protocol)
 
-These are valid values for the `"cmd"` field in requests sent to `atv_daemon.py`.
+These are valid values for the `"cmd"` field in requests sent to `ftv_daemon.py`.
 
 #### Config / device management (no live connection required)
 
 | Command | Description | Daemon dispatcher line |
 |---|---|---|
-| `"list_devices"` | Return all saved devices | `atv_daemon.py` ~L145 |
-| `"get_config_value"` | Read a per-device config key | `atv_daemon.py` ~L155 |
-| `"set_config_value"` | Write a per-device config key | `atv_daemon.py` ~L164 |
-| `"select_device"` | Mark a device as selected in config | `atv_daemon.py` ~L177 |
-| `"remove_device"` | Delete a device from config | `atv_daemon.py` ~L185 |
-| `"scan_devices"` | Discover devices on the network | `atv_daemon.py` ~L198 |
-| `"pair_begin"` | Start pairing for a protocol | `atv_daemon.py` ~L222 |
-| `"pair_pin"` | Submit PIN during pairing | `atv_daemon.py` ~L254 |
-| `"pair_save"` | Persist credentials from pairing | `atv_daemon.py` ~L281 |
+| `"list_devices"` | Return all saved devices | `ftv_daemon.py` ~L145 |
+| `"get_config_value"` | Read a per-device config key | `ftv_daemon.py` ~L155 |
+| `"set_config_value"` | Write a per-device config key | `ftv_daemon.py` ~L164 |
+| `"select_device"` | Mark a device as selected in config | `ftv_daemon.py` ~L177 |
+| `"remove_device"` | Delete a device from config | `ftv_daemon.py` ~L185 |
+| `"scan_devices"` | Discover devices on the network | `ftv_daemon.py` ~L198 |
+| `"pair_begin"` | Start pairing for a protocol | `ftv_daemon.py` ~L222 |
+| `"pair_pin"` | Submit PIN during pairing | `ftv_daemon.py` ~L254 |
+| `"pair_save"` | Persist credentials from pairing | `ftv_daemon.py` ~L281 |
 
 #### Live-connection commands (require a paired, reachable device)
 
 | Command | Description | Daemon dispatcher line |
 |---|---|---|
-| `"power_state"` | Query current power state | `atv_daemon.py` ~L322 |
-| `"power_on"` | Send power-on remote key | `atv_daemon.py` ~L421 block |
-| `"power_off"` | Send power-off remote key | `atv_daemon.py` ~L421 block |
-| `"get_volume"` | Read current volume level | `atv_daemon.py` ~L327 |
-| `"set_volume"` | Set absolute volume level | `atv_daemon.py` ~L332 |
-| `"volume_mute"` | Toggle mute | `atv_daemon.py` ~L345 |
-| `"get_metadata"` | Fetch now-playing metadata | `atv_daemon.py` ~L357 |
-| `"get_artwork"` | Fetch current artwork bytes | `atv_daemon.py` ~L385 |
-| `"list_apps"` | List installed iOS/tvOS apps | `atv_daemon.py` ~L396 |
-| `"launch_app"` | Launch an app by bundle ID | `atv_daemon.py` ~L405 |
-| `"keyboard_set"` | Type text into focused text field | `atv_daemon.py` ~L413 |
+| `"power_state"` | Query current power state | `ftv_daemon.py` ~L322 |
+| `"power_on"` | Send power-on remote key | `ftv_daemon.py` ~L421 block |
+| `"power_off"` | Send power-off remote key | `ftv_daemon.py` ~L421 block |
+| `"get_volume"` | Read current volume level | `ftv_daemon.py` ~L327 |
+| `"set_volume"` | Set absolute volume level | `ftv_daemon.py` ~L332 |
+| `"volume_mute"` | Toggle mute | `ftv_daemon.py` ~L345 |
+| `"get_metadata"` | Fetch now-playing metadata | `ftv_daemon.py` ~L357 |
+| `"get_artwork"` | Fetch current artwork bytes | `ftv_daemon.py` ~L385 |
+| `"list_apps"` | List installed iOS/tvOS apps | `ftv_daemon.py` ~L396 |
+| `"launch_app"` | Launch an app by bundle ID | `ftv_daemon.py` ~L405 |
+| `"keyboard_set"` | Type text into focused text field | `ftv_daemon.py` ~L413 |
 
 #### Remote control keys (handled by `REMOTE_COMMANDS` set)
 
 `"play_pause"`, `"stop"`, `"volume_up"`, `"volume_down"`, `"skip_next"`, `"skip_prev"`, `"next_track"`, `"prev_track"`, `"select"`, `"select_hold"`, `"up"`, `"down"`, `"left"`, `"right"`, `"menu"`, `"home"`, `"top_menu"`
 
-All dispatch via the shared remote-key path in `atv_daemon.py` ~L421.
+All dispatch via the shared remote-key path in `ftv_daemon.py` ~L421.
 
 ---
 
@@ -260,7 +260,7 @@ All dispatch via the shared remote-key path in `atv_daemon.py` ~L421.
 | `_startPolling()` / `_stopPolling()` | 582/589 | Manages the metadata poll timer |
 | `_pollMetadata()` | 595 | Fires `get_metadata` on poll interval |
 | `_updateMetadata(r)` | 605 | Applies metadata response to title label and app buttons |
-| `_ensureDaemon()` | 619 | Spawns `atv_daemon.py` subprocess if not running |
+| `_ensureDaemon()` | 619 | Spawns `ftv_daemon.py` subprocess if not running |
 | `_readLoop()` | 641 | Async loop reading JSON lines from daemon stdout |
 | `_handleResponse(line)` | 654 | Parses a JSON response and resolves the matching Promise |
 | `_send(command, ...extraArgs)` | 703 | Sends a JSON command; returns a Promise resolved on response |
@@ -277,7 +277,7 @@ All dispatch via the shared remote-key path in `atv_daemon.py` ~L421.
 | `getAppColor(appId)` | 804 | Returns cached `{bg, text}` for an app, or `null` |
 | `hasAppBeenProcessed(appId)` | 808 | Returns true if color fetch was attempted (even if null) |
 | `_watchColorFile()` | 812 | Sets up `Gio.FileMonitor` to reload colors on file change |
-| `_startColorFetcher()` | 823 | Launches `atv_color_fetcher.py` as a background subprocess |
+| `_startColorFetcher()` | 823 | Launches `ftv_color_fetcher.py` as a background subprocess |
 | `_readAppsConfig()` / `_saveAppsConfig(...)` | 839/854 | I/O for `apps.json` (favorites + known apps) |
 | `getFavoriteApps(_deviceId)` | 874 | Returns array of favorite bundle IDs |
 | `setAppFavorite(_deviceId, app, isFavorite)` | 878 | Adds/removes an app from favorites and persists |
@@ -289,21 +289,22 @@ All dispatch via the shared remote-key path in `atv_daemon.py` ~L421.
 
 ### 10.5 Key Methods — Python Backend
 
-#### `ATVDaemon` (`scripts/atv_daemon.py`)
+#### `FTVDaemon` (`scripts/ftv_daemon.py`)
 
 | Method | Approx. line | What it does |
 |---|---|---|
 | `__init__()` | 46 | Sets up connection dict, lock dict, and pairing state |
 | `_respond(id_, *, result, error)` | 53 | Writes one JSON response line to stdout |
-| `_build_config(entry)` | 65 | Builds a `pyatv.conf.AppleTV` from a saved device entry |
-| `_connect(device_id)` | 82 | Opens a live `pyatv` connection and stores it |
-| `_get_connection(device_id, reconnect=False)` | 93 | Returns cached connection, optionally reconnecting |
-| `_with_retry(device_id, fn)` | 108 | Runs `fn(atv)`, retries once on connection error |
-| `_dispatch(cmd, args)` | 117 | The main command switch; routes each cmd string |
-| `_execute(msg)` | 449 | Parses a JSON request line and calls `_dispatch` |
-| `run()` | 457 | Async entry point; reads stdin in a loop |
+| `_persist_device_address(device_id, config)` | ~175 | Saves current IP + service ports to `devices.json` after a scan |
+| `_build_config(entry)` | ~195 | Builds pyatv config; falls back to direct-connect when mDNS fails |
+| `_connect(device_id)` | ~240 | Opens a live `pyatv` connection and stores it |
+| `_get_connection(device_id, reconnect=False)` | ~255 | Returns cached connection, optionally reconnecting |
+| `_with_retry(device_id, fn)` | ~270 | Runs `fn(atv)`, retries once on connection error |
+| `_dispatch(cmd, args)` | ~285 | The main command switch; routes each cmd string |
+| `_execute(msg)` | ~590 | Parses a JSON request line and calls `_dispatch` |
+| `run()` | ~600 | Async entry point; reads stdin in a loop |
 
-#### `scripts/atv_control.py` — top-level helpers
+#### `scripts/ftv_control.py` — top-level helpers
 
 | Symbol | Approx. line | What it does |
 |---|---|---|
@@ -314,7 +315,7 @@ All dispatch via the shared remote-key path in `atv_daemon.py` ~L421.
 | `cmd_remote(entry, command)` | 272 | Fires any remote-key command by name |
 | `main()` | 329 | CLI argument router |
 
-#### `scripts/atv_color_fetcher.py` — key functions
+#### `scripts/ftv_color_fetcher.py` — key functions
 
 | Symbol | Approx. line | What it does |
 |---|---|---|
@@ -342,8 +343,8 @@ All dispatch via the shared remote-key path in `atv_daemon.py` ~L421.
 | `START_X` / `START_Y` | `12` / `12` | `appChooser.js` | 25–26 |
 | `MIN_WRAP_CHARS` | `9` (threshold for two-line app name wrapping) | `appChooser.js` | 27 |
 | `FRUIT_OPTIONS` | 10-item array of `{id, label}` for logo picker | `deviceDialog.js` | 10 |
-| `CONFIG_PATH` | `~/.config/appletv-remote/devices.json` | `atv_daemon.py`, `atv_control.py` | 20 / 24 |
-| `REQUEST_DELAY` | `1.5` seconds between icon fetches | `atv_color_fetcher.py` | 33 |
+| `CONFIG_PATH` | `~/.config/appletv-remote/devices.json` | `ftv_daemon.py`, `ftv_control.py` | 20 / 24 |
+| `REQUEST_DELAY` | `1.5` seconds between icon fetches | `ftv_color_fetcher.py` | 33 |
 
 ---
 
@@ -417,14 +418,14 @@ Classes applied via `style_class` or `add_style_class_name` across the extension
 | **Favorites** | `FruitTVRemoteExtension.getFavoriteApps`, `setAppFavorite`, `apps.json` | Subset of known apps shown in the 3-slot quick-app strip |
 | **Quick-app strip** | `FruitTVIndicator._refreshAppButtons`, constants `APP_BTN_COLS/APP_BTNS_Y` | 3 fixed-position buttons at the bottom of the remote graphic |
 | **App chooser** | `AppChooser`, `AppDialog`, `AppTile` | Full-screen 4-column grid; opened via `_openAppSelector` |
-| **App colors** | `atv_color_fetcher.py`, `app_colors.json`, `FruitTVRemoteExtension.getAppColor` | Dominant bg+text color pair extracted from iTMS icon for each app |
+| **App colors** | `ftv_color_fetcher.py`, `app_colors.json`, `FruitTVRemoteExtension.getAppColor` | Dominant bg+text color pair extracted from iTMS icon for each app |
 | **Color monitor** | `FruitTVRemoteExtension._watchColorFile` | `Gio.FileMonitor` on `app_colors.json`; triggers CSS class refresh |
-| **Daemon** | `atv_daemon.py`, `FruitTVIndicator._ensureDaemon/_readLoop/_send` | Persistent subprocess; one per shell session; commands flow via newline-delimited JSON on stdin/stdout |
+| **Daemon** | `ftv_daemon.py`, `FruitTVIndicator._ensureDaemon/_readLoop/_send` | Persistent subprocess; one per shell session; commands flow via newline-delimited JSON on stdin/stdout |
 | **Pairing flow** | `deviceDialog.js _setupDevice/_pairProtocol/_promptPin`, daemon `pair_begin/pair_pin/pair_save` | MRP required first; Companion optional (tvOS 15+) |
 | **Metadata polling** | `FruitTVIndicator._startPolling/_pollMetadata/_updateMetadata` | Timer-based `get_metadata` calls; updates title label and active-app highlight |
 | **Power states** | `FruitTVIndicator._powerStates` (Map), `_togglePower`, `_updatePowerStatus` | Cached per device; drives power LED and on/off command selection |
 | **Hit regions** | `FruitTVIndicator._remoteControls`, CSS `fruittv-hit-btn/fruittv-hit-circle` | Transparent buttons positioned with `Clutter.FixedLayout` over a PNG background |
 | **`wrapAppName`** | `appChooser.js` line 29 | Inserts newline in app names longer than `MIN_WRAP_CHARS` so tile label fits in 2 lines |
 | **`_send` protocol** | `FruitTVIndicator._send` | Returns a `Promise`; keyed by auto-incrementing `_cmdId`; resolved by `_handleResponse` |
-| **`device_details` command** | `deviceDialog.js _showDeviceDetails` | Called by the UI but **not yet implemented** in `atv_daemon.py` — known gap |
+| **`device_details` command** | `deviceDialog.js _showDeviceDetails` | Implemented in `ftv_daemon.py`; returns cached info from `_details_cache` when available |
 | **Fire TV variant** | `scripts/ftv_*.py` | Parallel backend scripts for Amazon Fire TV devices; share the same pattern as ATV scripts |

@@ -106,8 +106,8 @@ cp "${EXTENSION_SRC}/appDialog.js"    "${EXTENSION_DEST}/appDialog.js"
 cp "${EXTENSION_SRC}/appChooser.js"   "${EXTENSION_DEST}/appChooser.js"
 cp "${EXTENSION_SRC}/deviceDialog.js" "${EXTENSION_DEST}/deviceDialog.js"
 
-if [ -f "${EXTENSION_SRC}/atv_remote.png" ]; then
-    cp "${EXTENSION_SRC}/atv_remote.png" "${EXTENSION_DEST}/atv_remote.png"
+if [ -f "${EXTENSION_SRC}/ftv_remote.png" ]; then
+    cp "${EXTENSION_SRC}/ftv_remote.png" "${EXTENSION_DEST}/ftv_remote.png"
 fi
 
 # Also copy the icons, if the directory exists

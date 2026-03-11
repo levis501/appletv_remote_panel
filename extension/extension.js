@@ -136,7 +136,7 @@ class FruitTVIndicator extends PanelMenu.Button {
     }
 
     _remoteControls() {
-        // Both atv_remote.png and atv_remote_hitboxes.png are 225×877.
+        // Both ftv_remote.png and ftv_remote_hitboxes.png are 225×877.
         // Use natural image dimensions so hit-region coordinates map 1:1.
         const remoteWidth  = 225;
         const remoteHeight = 877;
@@ -148,12 +148,12 @@ class FruitTVIndicator extends PanelMenu.Button {
         });
         remote.set_size(remoteWidth, remoteHeight);
         remote.set_style(
-            `background-image: url("${this._extension.path}/atv_remote.png"); ` +
+            `background-image: url("${this._extension.path}/ftv_remote.png"); ` +
             'background-size: 100% 100%; background-repeat: no-repeat;'
         );
         this._remoteWidget = remote;
 
-        log(`FruitTV-Remote: loading remote graphic ${this._extension.path}/atv_remote.png`);
+        log(`FruitTV-Remote: loading remote graphic ${this._extension.path}/ftv_remote.png`);
 
         const addHit = (command, x, y, w, h, className = '') => {
             const btn = new St.Button({
@@ -222,7 +222,7 @@ class FruitTVIndicator extends PanelMenu.Button {
             }
         };
 
-        // Hit regions from atv_remote_hitboxes.png (225×877).
+        // Hit regions from ftv_remote_hitboxes.png (225×877).
         // Mid-green (0,128,0) top-left → device manager.
         // Azure (0,127,255) left edge → skip_prev; Bone (227,218,201) right edge → skip_next.
         const regions = [

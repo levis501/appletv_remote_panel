@@ -52,11 +52,15 @@ def print_device_list(cfg):
         print(f"  [{i}] {d['name']:20s}  [{has_mrp} {has_comp}]{marker}")
 
 
-async def discover_devices():
+async def discover_devices(hosts=None):
     import pyatv
     from pyatv.const import OperatingSystem
-    print("Scanning network for Fruit TVs (5 second timeout)...")
-    found = await pyatv.scan(asyncio.get_event_loop(), timeout=5)
+    if hosts:
+        print(f"Scanning by IP ({', '.join(hosts)}) ...")
+        found = await pyatv.scan(asyncio.get_event_loop(), timeout=5, hosts=hosts)
+    else:
+        print("Scanning network for Fruit TVs (5 second timeout)...")
+        found = await pyatv.scan(asyncio.get_event_loop(), timeout=5)
     # Filter to only include Fruit TVs (tvOS devices)
     return [
         a for a in found
@@ -107,15 +111,8 @@ async def pair_protocol(atv_config, protocol_name):
         return None
 
 
-async def cmd_add_devices(cfg):
-    """Scan the network and add or re-pair chosen devices."""
-    atvs = await discover_devices()
-
-    if not atvs:
-        print("\nNo Fruit TVs found.")
-        print("Make sure your Fruit TVs are powered on and on the same network.")
-        return
-
+async def _pair_found_devices(atvs, cfg):
+    """Interactively pair a list of discovered atv configs into cfg (no save)."""
     configured_ids = {d["id"] for d in cfg.get("devices", [])}
 
     print(f"\nFound {len(atvs)} device(s):\n")
@@ -207,6 +204,36 @@ async def cmd_add_devices(cfg):
     save_config(cfg)
 
 
+async def cmd_add_devices(cfg):
+    """Scan the network and add or re-pair chosen devices."""
+    atvs = await discover_devices()
+
+    if not atvs:
+        print("\nNo Fruit TVs found.")
+        print("Make sure your Fruit TVs are powered on and on the same network.")
+        return
+
+    await _pair_found_devices(atvs, cfg)
+    save_config(cfg)
+
+
+async def cmd_add_devices_by_ip(cfg):
+    """Scan by IP address (for cross-VLAN where mDNS doesn't reach)."""
+    raw = input("Enter IP address(es), comma-separated: ").strip()
+    if not raw:
+        return
+    hosts = [h.strip() for h in raw.split(",") if h.strip()]
+    atvs = await discover_devices(hosts=hosts)
+
+    if not atvs:
+        print("\nNo Fruit TVs found at those IPs.")
+        print("Check that the device is reachable (ping) and firewall allows port 49152+.")
+        return
+
+    await _pair_found_devices(atvs, cfg)
+    save_config(cfg)
+
+
 def cmd_remove_device(cfg):
     """Remove a device from the config."""
     devices = cfg.get("devices", [])
@@ -256,7 +283,8 @@ async def setup():
         print_device_list(cfg)
 
         print("\nOptions:")
-        print("  [a] Scan and add / re-pair devices")
+        print("  [a] Scan and add / re-pair devices (mDNS)")
+        print("  [i] Add / re-pair by IP address (cross-VLAN)")
         if devices:
             print("  [r] Remove a device")
         print("  [q] Quit / Done")
@@ -267,6 +295,8 @@ async def setup():
             break
         elif choice == "a":
             await cmd_add_devices(cfg)
+        elif choice == "i":
+            await cmd_add_devices_by_ip(cfg)
         elif choice == "r" and devices:
             cmd_remove_device(cfg)
         else:

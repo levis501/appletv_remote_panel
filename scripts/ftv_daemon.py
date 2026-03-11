@@ -62,12 +62,97 @@ def _pick_first_nonempty(*values):
     return None
 
 
+def _extract_service_ports(config):
+    """Return a dict of stored port data from a scanned config object."""
+    from pyatv.const import Protocol
+    ports = {}
+    mrp_svc = config.get_service(Protocol.MRP)
+    if mrp_svc:
+        ports["mrp_port"] = mrp_svc.port
+    companion_svc = config.get_service(Protocol.Companion)
+    if companion_svc:
+        ports["companion_port"] = companion_svc.port
+    return ports
+
+
+def _build_manual_config(entry):
+    """Build a pyatv AppleTV config from the stored address and service ports,
+    bypassing mDNS discovery entirely.  Returns None when there is not enough
+    stored data (address or ports missing).
+
+    This allows connecting to a device outside the local subnet — where mDNS
+    broadcast cannot reach — as long as the device's IP address is routable
+    and the service ports were previously cached from a scan on the same subnet.
+    """
+    from pyatv.conf import AppleTV, ManualService
+    from pyatv.const import Protocol, PairingRequirement
+    from ipaddress import IPv4Address
+
+    address = entry.get("address")
+    services_data = entry.get("services", {})
+    mrp_port = services_data.get("mrp_port")
+
+    # Require address, MRP port, and MRP credentials to build a useful config.
+    if not address or not mrp_port or not entry.get("credentials_mrp"):
+        return None
+
+    config = AppleTV(IPv4Address(address), entry.get("name", ""))
+    config.add_service(ManualService(
+        entry.get("id"),
+        Protocol.MRP,
+        mrp_port,
+        {},
+        pairing_requirement=PairingRequirement.NotNeeded,
+    ))
+
+    companion_port = services_data.get("companion_port")
+    if companion_port and entry.get("credentials_companion"):
+        config.add_service(ManualService(
+            None,
+            Protocol.Companion,
+            companion_port,
+            {},
+            pairing_requirement=PairingRequirement.NotNeeded,
+        ))
+
+    return config
+
+
+def _extract_device_info(config):
+    """Extract network-discovered device info from a pyatv config object."""
+    result = {
+        "address": str(getattr(config, "address", "") or ""),
+    }
+    info = getattr(config, "device_info", None)
+    if info is not None:
+        result["model"] = _pick_first_nonempty(
+            getattr(info, "model_str", None),
+            getattr(info, "model", None),
+        )
+        result["operating_system"] = _normalize_os_name(
+            getattr(info, "operating_system", None)
+        )
+        result["os_version"] = _pick_first_nonempty(
+            getattr(info, "version", None),
+            getattr(info, "operating_system_version", None),
+        )
+        result["build_number"] = _pick_first_nonempty(
+            getattr(info, "build_number", None)
+        )
+        result["mac"] = _pick_first_nonempty(
+            getattr(info, "mac", None),
+            getattr(info, "mac_address", None),
+        )
+    return result
+
+
 # ── Daemon ────────────────────────────────────────────────────────────────────
 
 class FTVDaemon:
     def __init__(self):
         self._connections = {}   # device_id -> atv object
         self._conn_locks = {}    # device_id -> asyncio.Lock (serialises reconnects)
+        self._details_cache = {} # device_id -> network-scanned device info dict
 
     # ── I/O helpers ───────────────────────────────────────────────────────────
 
@@ -85,8 +170,40 @@ class FTVDaemon:
 
     # ── Connection management ──────────────────────────────────────────────────
 
+    def _persist_device_address(self, device_id, config):
+        """Persist the device's current address and service ports to devices.json.
+
+        Called after a successful mDNS scan so the cross-subnet direct-connect
+        fallback always has up-to-date routing data.
+        """
+        new_address = str(getattr(config, "address", "") or "")
+        ports = _extract_service_ports(config)
+
+        cfg = load_config()
+        entry = find_device(cfg, device_id)
+        if entry is None:
+            return
+
+        changed = (
+            (new_address and entry.get("address") != new_address)
+            or (ports and entry.get("services") != ports)
+        )
+        if changed:
+            if new_address:
+                entry["address"] = new_address
+            if ports:
+                entry["services"] = ports
+            save_config(cfg)
+
     async def _build_config(self, entry):
-        """Resolve device address/services and apply stored credentials."""
+        """Resolve device address/services and apply stored credentials.
+
+        Scan order:
+          1. Unicast mDNS to the stored IP (fast; works cross-subnet when IP is routable).
+          2. mDNS broadcast by identifier (works on same subnet; catches IP changes).
+          3. Direct-connect fallback using stored address + cached service ports,
+             bypassing mDNS entirely (enables cross-subnet access when mDNS is blocked).
+        """
         import pyatv
         from pyatv.const import Protocol
 
@@ -101,10 +218,18 @@ class FTVDaemon:
             atvs = await pyatv.scan(loop, identifier=entry["id"], timeout=5)
             if atvs:
                 match = atvs[0]
-        if match is None:
-            return None
 
-        config = match
+        if match is not None:
+            config = match
+            # Persist fresh address + service ports for cross-subnet fallback.
+            self._persist_device_address(entry["id"], config)
+        else:
+            # Cross-subnet fallback: construct config directly from the stored
+            # address and port cache, skipping mDNS entirely.
+            config = _build_manual_config(entry)
+            if config is None:
+                return None
+
         if "credentials_mrp" in entry:
             config.set_credentials(Protocol.MRP, entry["credentials_mrp"])
         if "credentials_companion" in entry:
@@ -125,6 +250,10 @@ class FTVDaemon:
         config = await self._build_config(entry)
         if config is None:
             raise ConnectionError(f"Device '{device_id}' not found on network")
+
+        # Cache device_info while we already have the scan result; avoids a
+        # re-scan when the user subsequently opens the device details dialog.
+        self._details_cache[device_id] = _extract_device_info(config)
 
         atv = await pyatv.connect(config, asyncio.get_running_loop())
         self._connections[device_id] = atv
@@ -265,36 +394,18 @@ class FTVDaemon:
                 },
             }
 
-            try:
-                config = await self._build_config(entry)
-            except Exception:
-                config = None
-
-            if config is not None:
-                details["address"] = _pick_first_nonempty(
-                    getattr(config, "address", None),
-                    details.get("address"),
-                )
-                info = getattr(config, "device_info", None)
-                if info is not None:
-                    details["model"] = _pick_first_nonempty(
-                        getattr(info, "model_str", None),
-                        getattr(info, "model", None),
-                    )
-                    details["operating_system"] = _normalize_os_name(
-                        getattr(info, "operating_system", None)
-                    )
-                    details["os_version"] = _pick_first_nonempty(
-                        getattr(info, "version", None),
-                        getattr(info, "operating_system_version", None),
-                    )
-                    details["build_number"] = _pick_first_nonempty(
-                        getattr(info, "build_number", None)
-                    )
-                    details["mac"] = _pick_first_nonempty(
-                        getattr(info, "mac", None),
-                        getattr(info, "mac_address", None),
-                    )
+            # Use prefetched device_info when available (populated on connect)
+            if device_id in self._details_cache:
+                details.update(self._details_cache[device_id])
+            else:
+                try:
+                    config = await self._build_config(entry)
+                except Exception:
+                    config = None
+                if config is not None:
+                    info = _extract_device_info(config)
+                    self._details_cache[device_id] = info
+                    details.update(info)
 
             return details
 
@@ -327,7 +438,13 @@ class FTVDaemon:
             if not hasattr(self, "_active_pairings"):
                 self._active_pairings = {}
             self._active_pairings[device_id] = (pairing, config)
-            
+
+            # Cache service ports so pair_save can persist them for future
+            # cross-subnet connections without needing another scan.
+            if not hasattr(self, "_pair_ports_cache"):
+                self._pair_ports_cache = {}
+            self._pair_ports_cache[device_id] = _extract_service_ports(config)
+
             return {"status": "waiting_for_pin"}
 
         if cmd == "pair_pin":
@@ -372,7 +489,17 @@ class FTVDaemon:
             }
             if existing and "config" in existing:
                 entry["config"] = existing["config"]
-                
+
+            # Carry over cached service ports so cross-subnet connections work
+            # without requiring the device to be reachable via mDNS first.
+            cached_ports = None
+            if hasattr(self, "_pair_ports_cache"):
+                cached_ports = self._pair_ports_cache.pop(device_id, None)
+            if cached_ports:
+                entry["services"] = cached_ports
+            elif existing and existing.get("services"):
+                entry["services"] = existing["services"]
+
             if "mrp" in creds_dict:
                 entry["credentials_mrp"] = creds_dict["mrp"]
             if "companion" in creds_dict:
