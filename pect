@@ -1,0 +1,40 @@
+Help on class App in module pyatv.interface:
+
+class AApppp(builtins.object)
+ |  App(name: Optional[str], identifier: str) -> None
+ |
+ |  Information about an app.
+ |
+ |  Methods defined here:
+ |
+ |  ____eeqq____(self, other) -> bool
+ |      Return self==other.
+ |
+ |  ____iinniitt____(self, name: Optional[str], identifier: str) -> None
+ |      Initialize a new App instance.
+ |
+ |  ____ssttrr____(self) -> str
+ |      Convert app info to readable string.
+ |
+ |  ----------------------------------------------------------------------
+ |  Readonly properties defined here:
+ |
+ |  iiddeennttiiffiieerr
+ |      Return a unique bundle id for the app.
+ |
+ |  nnaammee
+ |      User friendly name of app.
+ |
+ |  ----------------------------------------------------------------------
+ |  Data descriptors defined here:
+ |
+ |  ____ddiicctt____
+ |      dictionary for instance variables
+ |
+ |  ____wweeaakkrreeff____
+ |      list of weak references to the object
+ |
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |
+ |  ____hhaasshh____ = None

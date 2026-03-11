@@ -43,18 +43,19 @@ class AppDialog extends ModalDialog.ModalDialog {
 
         this.setButtons([
             {
+                label: _('Refresh'),
+                action: () => this._appChooser.refresh(),
+            },
+            {
                 label: _('OK'),
                 action: () => this.close(),
                 key: Clutter.KEY_Escape,
             },
         ]);
 
-        // Force OK button text to white (CSS alone doesn't override modal dialog theme)
-        const buttons = this.buttonLayout.get_children();
-        for (const btn of buttons) {
-            if (btn.child && btn.child.text === _('OK')) {
-                btn.add_style_class_name('app-dialog-ok-btn');
-            }
+        // Force all button text to white (dark dialog background overrides default theme)
+        for (const btn of this.buttonLayout.get_children()) {
+            btn.add_style_class_name('app-dialog-ok-btn');
         }
     }
 

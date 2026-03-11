@@ -73,6 +73,7 @@ class FruitTVIndicator extends PanelMenu.Button {
 
         this._pollTimer = null;
         this._lastTitle = null;
+        this._launchVerifyTimer = null;
 
         // Issue 6: currently active app id (from metadata polling)
         this._currentAppId = null;
@@ -311,18 +312,30 @@ class FruitTVIndicator extends PanelMenu.Button {
         if (iconFile) {
             // Real icon fills the whole button — no label
             btn.add_style_class_name('fruittv-quick-app-btn-with-icon');
-            btn.set_style(
+            const iconStyle = (
                 `background-image: url("${iconFile.get_path()}"); ` +
                 `background-size: ${APP_BTN_W}px ${APP_BTN_H}px; ` +
                 'background-position: center; background-repeat: no-repeat;'
             );
+            btn.set_style(iconStyle);
+            btn.connect('notify::hover', () => {
+                btn.set_style(btn.hover
+                    ? iconStyle + ' border: 2px solid rgba(255,255,255,0.5);'
+                    : iconStyle);
+            });
         } else if (isLoading) {
             // Loading state: black background with centered white app name
             const loadingPath = `${this._extension.path}/icons/apps/loading.png`;
-            btn.set_style(
+            const loadingStyle = (
                 `background-image: url("${loadingPath}"); ` +
                 'background-size: 100% 100%; background-repeat: no-repeat;'
             );
+            btn.set_style(loadingStyle);
+            btn.connect('notify::hover', () => {
+                btn.set_style(btn.hover
+                    ? loadingStyle + ' border: 2px solid rgba(255,255,255,0.3);'
+                    : loadingStyle);
+            });
             btn.set_child(new St.Label({
                 text: app.name,
                 style_class: 'fruittv-quick-app-label',
@@ -332,7 +345,13 @@ class FruitTVIndicator extends PanelMenu.Button {
         } else {
             // Color fallback — centered label
             if (fetchedColors) {
-                btn.set_style(`background-color: ${fetchedColors.bg};`);
+                const bgStyle = `background-color: ${fetchedColors.bg};`;
+                btn.set_style(bgStyle);
+                btn.connect('notify::hover', () => {
+                    btn.set_style(btn.hover
+                        ? bgStyle + ' border: 2px solid rgba(255,255,255,0.4);'
+                        : bgStyle);
+                });
             }
             const label = new St.Label({
                 text: app.name,
@@ -346,11 +365,14 @@ class FruitTVIndicator extends PanelMenu.Button {
             btn.set_child(label);
         }
 
-        btn.connect('button-press-event', () => {
-            if (this._selectedId) {
-                log(`[FruitTV] Quick-launching app ${app.name} (${app.id}) (prior app: ${this._currentAppId || 'unknown'})`);
-                this._send('launch_app', this._selectedId, app.id);
+        btn.connect('button-press-event', (_, event) => {
+            if (event.get_button() === 3) {
+                this._extension.setAppFavorite(this._selectedId, app, false);
+                this._refreshAppButtons();
+                return Clutter.EVENT_STOP;
             }
+            if (event.get_button() === 1)
+                this._launchApp(app);
             return Clutter.EVENT_STOP;
         });
 
@@ -390,15 +412,64 @@ class FruitTVIndicator extends PanelMenu.Button {
 
         btn.set_child(box);
 
-        btn.connect('button-press-event', () => {
-            if (this._selectedId) {
-                log(`[FruitTV] Quick-launching TV app (${app.id})`);
-                this._send('launch_app', this._selectedId, app.id);
+        btn.connect('notify::hover', () => {
+            btn.set_style(btn.hover ? 'border: 2px solid rgba(255,255,255,0.5);' : '');
+        });
+
+        btn.connect('button-press-event', (_, event) => {
+            if (event.get_button() === 3) {
+                this._extension.setAppFavorite(this._selectedId, app, false);
+                this._refreshAppButtons();
+                return Clutter.EVENT_STOP;
             }
+            if (event.get_button() === 1)
+                this._launchApp(app);
             return Clutter.EVENT_STOP;
         });
 
         return btn;
+    }
+
+    // ── Shared app launch with post-launch verification ───────────────────────
+
+    _launchApp(app) {
+        if (!this._selectedId) {
+            Main.notify('Fruit TV Remote', _('No device selected'));
+            return;
+        }
+
+        // Cancel any pending verify timer from a previous launch
+        if (this._launchVerifyTimer) {
+            GLib.source_remove(this._launchVerifyTimer);
+            this._launchVerifyTimer = null;
+        }
+
+        const targetId = app.id;
+        log(`[FruitTV] Launching ${app.name} (${targetId}), currently on: ${this._currentAppId || 'unknown'}`);
+
+        this._send('launch_app', this._selectedId, targetId).then(() => {
+            // pyatv launch_app is fire-and-forget — schedule a metadata check
+            // to confirm the TV actually switched to the app.
+            this._launchVerifyTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
+                this._launchVerifyTimer = null;
+                if (!this._selectedId) return GLib.SOURCE_REMOVE;
+                this._send('get_metadata', this._selectedId).then(([stdout]) => {
+                    const res = JSON.parse(stdout);
+                    this._updateMetadata(res);
+                    if (this._currentAppId !== targetId) {
+                        log(`[FruitTV] Launch verify: expected ${targetId}, got ${this._currentAppId}`);
+                        Main.notify(
+                            'Fruit TV Remote',
+                            `“${app.name}” did not open — it may be offloaded (re-download needed on the TV), require sign-in, or need Companion re-pairing.`
+                        );
+                    }
+                }).catch(() => {});
+                return GLib.SOURCE_REMOVE;
+            });
+        }).catch(e => {
+            log(`[FruitTV] launch_app error for ${app.name}: ${e}`);
+            Main.notify('Fruit TV Remote', `Could not launch “${app.name}”: ${e.message}`);
+        });
     }
 
     // Issue 6: toggle the bright-green active border on matching app button
@@ -646,9 +717,13 @@ class FruitTVIndicator extends PanelMenu.Button {
         this._daemonStdout = new Gio.DataInputStream({
             base_stream: this._daemon.get_stdout_pipe(),
         });
+        this._daemonStderr = new Gio.DataInputStream({
+            base_stream: this._daemon.get_stderr_pipe(),
+        });
         this._pendingRequests = new Map();
         this._cmdId = 0;
         this._readLoop();
+        this._readStderrLoop();
     }
 
     _readLoop() {
@@ -666,6 +741,19 @@ class FruitTVIndicator extends PanelMenu.Button {
             } catch (e) {
                 log(`FruitTV-Remote daemon read error: ${e}`);
             }
+        });
+    }
+
+    _readStderrLoop() {
+        if (!this._daemonStderr) return;
+        this._daemonStderr.read_line_async(GLib.PRIORITY_DEFAULT, null, (stream, result) => {
+            try {
+                const [line] = stream.read_line_finish_utf8(result);
+                if (line !== null) {
+                    log(`[FruitTV-daemon] ${line}`);
+                    this._readStderrLoop();
+                }
+            } catch (_e) {}
         });
     }
 
@@ -690,6 +778,7 @@ class FruitTVIndicator extends PanelMenu.Button {
         try { this._daemonStdin?.close(null); } catch (_e) {}
         this._daemonStdin = null;
         this._daemonStdout = null;
+        this._daemonStderr = null;
         for (const [, pending] of this._pendingRequests) {
             pending.reject(new Error('Daemon process exited'));
         }
@@ -724,6 +813,10 @@ class FruitTVIndicator extends PanelMenu.Button {
         if (this._selectTimer) {
             GLib.source_remove(this._selectTimer);
             this._selectTimer = null;
+        }
+        if (this._launchVerifyTimer) {
+            GLib.source_remove(this._launchVerifyTimer);
+            this._launchVerifyTimer = null;
         }
         this._cleanupDaemon();
         super.destroy();

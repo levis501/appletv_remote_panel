@@ -613,7 +613,19 @@ class FTVDaemon:
             if len(args) < 2:
                 raise ValueError("launch_app requires bundle_id")
             async def _fn(atv, _bundle=args[1]):
-                await atv.apps.launch_app(_bundle)
+                print(f"[launch_app] Sending launch for '{_bundle}'", file=sys.stderr, flush=True)
+                try:
+                    await atv.apps.launch_app(_bundle)
+                    print(f"[launch_app] launch_app('{_bundle}') returned (no error)", file=sys.stderr, flush=True)
+                except Exception as _e:
+                    ename = type(_e).__name__
+                    print(f"[launch_app] '{_bundle}' raised {ename}: {_e}", file=sys.stderr, flush=True)
+                    if "NotSupportedError" in ename or "NotImplementedError" in ename:
+                        raise ValueError(
+                            f"App launch not supported for '{_bundle}' "
+                            "(Companion protocol may not be paired or app is restricted)"
+                        ) from _e
+                    raise ValueError(f"Launch failed for '{_bundle}': {_e}") from _e
                 return {}
             return await self._with_retry(device_id, _fn)
 

@@ -79,7 +79,7 @@ function wrapAppName(name) {
 
 const AppTile = GObject.registerClass(
 class AppTile extends St.Button {
-    _init(extension, atvDevice, app) {
+    _init(extension, atvDevice, app, onInfoRequested) {
         super._init({
             style_class: 'fruittv-quick-app-btn fruittv-app-chooser-btn',
             can_focus: true,
@@ -88,6 +88,7 @@ class AppTile extends St.Button {
         this._extension = extension;
         this._atvDevice = atvDevice;
         this._app = app;
+        this._onInfoRequested = onInfoRequested || null;
 
         // TV app gets special fruit + "TV" rendering
         if (app.id === TV_APP_ID) {
@@ -96,7 +97,17 @@ class AppTile extends St.Button {
             this._buildNormalContent(extension, app);
         }
 
-        this.connect('button-press-event', () => this._toggle());
+        this.connect('button-press-event', (_actor, event) => {
+            const button = event.get_button();
+            if (button === 1) {
+                this._toggle();
+                return Clutter.EVENT_STOP;
+            } else if (button === 3) {
+                if (this._onInfoRequested) this._onInfoRequested(this._app);
+                return Clutter.EVENT_STOP;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
 
         this._selected = false;
         this._initSelection();
@@ -145,18 +156,30 @@ class AppTile extends St.Button {
         if (iconFile) {
             // Real icon fills the whole button — no label
             this.add_style_class_name('fruittv-quick-app-btn-with-icon');
-            this.set_style(
+            const iconStyle = (
                 `background-image: url("${iconFile.get_path()}"); ` +
                 `background-size: ${APP_TILE_WIDTH}px ${APP_TILE_HEIGHT}px; ` +
                 'background-position: center; background-repeat: no-repeat;'
             );
+            this.set_style(iconStyle);
+            this.connect('notify::hover', () => {
+                this.set_style(this.hover
+                    ? iconStyle + ' border: 2px solid rgba(255,255,255,0.5);'
+                    : iconStyle);
+            });
         } else if (isLoading) {
             // Loading state: black background with centered white app name
             const loadingPath = `${extension.path}/icons/apps/loading.png`;
-            this.set_style(
+            const loadingStyle = (
                 `background-image: url("${loadingPath}"); ` +
                 'background-size: 100% 100%; background-repeat: no-repeat;'
             );
+            this.set_style(loadingStyle);
+            this.connect('notify::hover', () => {
+                this.set_style(this.hover
+                    ? loadingStyle + ' border: 2px solid rgba(255,255,255,0.3);'
+                    : loadingStyle);
+            });
             this.set_child(new St.Label({
                 text: wrapAppName(app.name),
                 style_class: 'fruittv-quick-app-label',
@@ -166,7 +189,13 @@ class AppTile extends St.Button {
         } else {
             // Color fallback — centered label
             if (fetchedColors) {
-                this.set_style(`background-color: ${fetchedColors.bg};`);
+                const bgStyle = `background-color: ${fetchedColors.bg};`;
+                this.set_style(bgStyle);
+                this.connect('notify::hover', () => {
+                    this.set_style(this.hover
+                        ? bgStyle + ' border: 2px solid rgba(255,255,255,0.4);'
+                        : bgStyle);
+                });
             }
             const label = new St.Label({
                 text: wrapAppName(app.name),
@@ -228,6 +257,29 @@ class AppChooser extends St.BoxLayout {
         });
         this.add_child(this._grid);
 
+        // Info bar: updated on right-click of any tile
+        this._infoLabel = new St.Label({
+            text: _('Right-click any app for details'),
+            style_class: 'fruittv-app-info-label',
+        });
+        this.add_child(this._infoLabel);
+
+        this._loadApps();
+    }
+
+    _showTileInfo(app) {
+        const isFav = this._extension.getFavoriteApps(this._atvDevice.id).includes(app.id);
+        this._infoLabel.set_text(
+            `${app.name}  ·  ${app.id}  ·  ${isFav ? '★ Favorite' : 'Not favorite'}`
+        );
+    }
+
+    refresh() {
+        for (const child of [...this._grid.get_children()])
+            child.destroy();
+        this._appButtons.clear();
+        this._grid.set_size(-1, -1);
+        this._infoLabel.set_text(_('Right-click any app for details'));
         this._loadApps();
     }
 
@@ -257,7 +309,8 @@ class AppChooser extends St.BoxLayout {
 
             for (let i = 0; i < apps.length; i++) {
                 const app = apps[i];
-                const btn = new AppTile(this._extension, this._atvDevice, app);
+                const btn = new AppTile(this._extension, this._atvDevice, app,
+                    (selectedApp) => this._showTileInfo(selectedApp));
                 btn.set_size(APP_TILE_WIDTH, APP_TILE_HEIGHT);
 
                 // Manual positioning: calculate grid row/col and set position

@@ -261,6 +261,21 @@
     box-shadow: 0 0 6px rgba(0, 255, 0, 0.5);
 }
 
+/* Info label at the bottom of the app chooser */
+.fruittv-app-info-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.55);
+    padding: 6px 8px 2px;
+    text-align: center;
+}
+
+/* Bundle-ID label in the app context dialog */
+.fruittv-app-info-id-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.55);
+    padding: 0 0 4px 0;
+}
+
 /* Chooser button size — compound selector (specificity 0,2,0) beats single-class */
 .fruittv-quick-app-btn.fruittv-app-chooser-btn {
     width: 50px;
