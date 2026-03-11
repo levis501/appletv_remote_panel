@@ -451,3 +451,14 @@
 .app-dialog-ok-btn {
     color: white !important;
 }
+
+/* ── Hover tooltips ──────────────────────────────────────────────────────── */
+
+.fruittv-tooltip {
+    background-color: rgba(0, 0, 0, 0.88);
+    color: white;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}

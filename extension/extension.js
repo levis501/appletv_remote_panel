@@ -41,6 +41,55 @@ const APP_COLOR_CLASSES = {
 // The app ID for the TV app — gets special fruit+TV rendering
 const TV_APP_ID = 'com.apple.TVWatchList';
 
+// Attach a custom hover tooltip label to any Clutter actor.
+// Positions itself below the pointer using global.get_pointer() after a short delay.
+function attachHoverTooltip(actor, text) {
+    if (!text) return;
+    actor.accessible_name = text;
+
+    let tooltipActor = null;
+    let showTimer = null;
+
+    const destroyTooltip = () => {
+        if (showTimer) {
+            GLib.source_remove(showTimer);
+            showTimer = null;
+        }
+        if (tooltipActor) {
+            tooltipActor.destroy();
+            tooltipActor = null;
+        }
+    };
+
+    actor.connect('enter-event', () => {
+        destroyTooltip();
+        showTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+            showTimer = null;
+            const [px, py] = global.get_pointer();
+            tooltipActor = new St.Label({
+                text,
+                style_class: 'fruittv-tooltip',
+            });
+            Main.uiGroup.add_child(tooltipActor);
+            tooltipActor.set_position(px + 10, py + 20);
+            return GLib.SOURCE_REMOVE;
+        });
+        return Clutter.EVENT_PROPAGATE;
+    });
+
+    actor.connect('leave-event', () => {
+        destroyTooltip();
+        return Clutter.EVENT_PROPAGATE;
+    });
+
+    actor.connect('button-press-event', () => {
+        destroyTooltip();
+        return Clutter.EVENT_PROPAGATE;
+    });
+
+    actor.connect('destroy', destroyTooltip);
+}
+
 
 const FruitTVIndicator = GObject.registerClass(
 class FruitTVIndicator extends PanelMenu.Button {
@@ -156,7 +205,7 @@ class FruitTVIndicator extends PanelMenu.Button {
 
         log(`FruitTV-Remote: loading remote graphic ${this._extension.path}/ftv_remote.png`);
 
-        const addHit = (command, x, y, w, h, className = '') => {
+        const addHit = (command, x, y, w, h, className = '', label = '') => {
             const btn = new St.Button({
                 style_class: `fruittv-hit-btn${className ? ` ${className}` : ''}`,
                 can_focus: true,
@@ -187,6 +236,7 @@ class FruitTVIndicator extends PanelMenu.Button {
                     return Clutter.EVENT_STOP;
                 });
             }
+            attachHoverTooltip(btn, label);
         };
 
         const light = new St.Widget({
@@ -227,29 +277,29 @@ class FruitTVIndicator extends PanelMenu.Button {
         // Mid-green (0,128,0) top-left → device manager.
         // Azure (0,127,255) left edge → skip_prev; Bone (227,218,201) right edge → skip_next.
         const regions = [
-            { command: () => this._openDeviceDialog(), x: 0,   y: 0,   w: 92,  h: 92 },
-            { command: () => this._togglePower(),       x: 133, y: 0,   w: 92,  h: 92 },
+            { command: () => this._openDeviceDialog(), x: 0,   y: 0,   w: 92,  h: 92,  label: 'Devices' },
+            { command: () => this._togglePower(),       x: 133, y: 0,   w: 92,  h: 92,  label: 'Power' },
 
-            { command: 'up',        x: 42,  y: 78,  w: 143, h: 64 },
-            { command: 'left',      x: 5,   y: 115, w: 65,  h: 144 },
-            { command: selectCmd,   x: 56,  y: 130, w: 114, h: 111, className: 'fruittv-hit-circle' },
-            { command: 'right',     x: 157, y: 114, w: 67,  h: 144 },
-            { command: 'down',      x: 43,  y: 230, w: 144, h: 66 },
+            { command: 'up',        x: 42,  y: 78,  w: 143, h: 64,  label: 'Up' },
+            { command: 'left',      x: 5,   y: 115, w: 65,  h: 144, label: 'Left' },
+            { command: selectCmd,   x: 56,  y: 130, w: 114, h: 111, className: 'fruittv-hit-circle', label: 'Select (hold for long press)' },
+            { command: 'right',     x: 157, y: 114, w: 67,  h: 144, label: 'Right' },
+            { command: 'down',      x: 43,  y: 230, w: 144, h: 66,  label: 'Down' },
 
-            { command: 'skip_prev', x: 0,   y: 244, w: 51,  h: 57 },
-            { command: 'skip_next', x: 174, y: 244, w: 51,  h: 57 },
+            { command: 'skip_prev', x: 0,   y: 244, w: 51,  h: 57,  label: 'Skip Previous' },
+            { command: 'skip_next', x: 174, y: 244, w: 51,  h: 57,  label: 'Skip Next' },
 
-            { command: 'menu',        x: 21,  y: 291, w: 85, h: 85 },
-            { command: 'home',        x: 118, y: 293, w: 83, h: 83 },
+            { command: 'menu',        x: 21,  y: 291, w: 85, h: 85, label: 'Menu' },
+            { command: 'home',        x: 118, y: 293, w: 83, h: 83, label: 'Home' },
 
-            { command: 'play_pause',  x: 22,  y: 387, w: 83, h: 83 },
-            { command: 'volume_up',   x: 119, y: 386, w: 83, h: 83 },
-            { command: () => this._openAppSelector(), x: 21, y: 482, w: 83, h: 83 },
-            { command: 'volume_down', x: 120, y: 483, w: 83, h: 83 },
+            { command: 'play_pause',  x: 22,  y: 387, w: 83, h: 83, label: 'Play / Pause' },
+            { command: 'volume_up',   x: 119, y: 386, w: 83, h: 83, label: 'Volume Up' },
+            { command: () => this._openAppSelector(), x: 21, y: 482, w: 83, h: 83, label: 'Apps' },
+            { command: 'volume_down', x: 120, y: 483, w: 83, h: 83, label: 'Volume Down' },
         ];
 
         for (const region of regions) {
-            addHit(region.command, region.x, region.y, region.w, region.h, region.className || '');
+            addHit(region.command, region.x, region.y, region.w, region.h, region.className || '', region.label || '');
         }
 
         const bin = new St.Bin({ child: remote, x_align: Clutter.ActorAlign.CENTER });
@@ -376,6 +426,7 @@ class FruitTVIndicator extends PanelMenu.Button {
             return Clutter.EVENT_STOP;
         });
 
+        attachHoverTooltip(btn, app.name);
         return btn;
     }
 
@@ -427,6 +478,7 @@ class FruitTVIndicator extends PanelMenu.Button {
             return Clutter.EVENT_STOP;
         });
 
+        attachHoverTooltip(btn, app.name);
         return btn;
     }
 

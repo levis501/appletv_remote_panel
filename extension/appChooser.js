@@ -1,9 +1,11 @@
 import GObject from 'gi://GObject';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import Clutter from 'gi://Clutter';
 
 import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 // CSS class to apply for each known app's brand color
 const APP_COLOR_CLASSES = {
@@ -26,6 +28,54 @@ const ROW_SPACING = 12;
 const START_X = 12;
 const START_Y = 12;
 const MIN_WRAP_CHARS = 9;
+
+// Attach a custom hover tooltip label to any Clutter actor.
+function attachHoverTooltip(actor, text) {
+    if (!text) return;
+    actor.accessible_name = text;
+
+    let tooltipActor = null;
+    let showTimer = null;
+
+    const destroyTooltip = () => {
+        if (showTimer) {
+            GLib.source_remove(showTimer);
+            showTimer = null;
+        }
+        if (tooltipActor) {
+            tooltipActor.destroy();
+            tooltipActor = null;
+        }
+    };
+
+    actor.connect('enter-event', () => {
+        destroyTooltip();
+        showTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+            showTimer = null;
+            const [px, py] = global.get_pointer();
+            tooltipActor = new St.Label({
+                text,
+                style_class: 'fruittv-tooltip',
+            });
+            Main.uiGroup.add_child(tooltipActor);
+            tooltipActor.set_position(px + 10, py + 20);
+            return GLib.SOURCE_REMOVE;
+        });
+        return Clutter.EVENT_PROPAGATE;
+    });
+
+    actor.connect('leave-event', () => {
+        destroyTooltip();
+        return Clutter.EVENT_PROPAGATE;
+    });
+
+    actor.connect('button-press-event', () => {
+        destroyTooltip();
+        return Clutter.EVENT_PROPAGATE;
+    });
+
+    actor.connect('destroy', destroyTooltip);
+}
 
 function wrapAppName(name) {
     if (!name || name.length < MIN_WRAP_CHARS) {
@@ -109,6 +159,7 @@ class AppTile extends St.Button {
             return Clutter.EVENT_PROPAGATE;
         });
 
+        attachHoverTooltip(this, app.name);
         this._selected = false;
         this._initSelection();
     }
