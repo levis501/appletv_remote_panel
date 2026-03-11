@@ -41,6 +41,16 @@ const APP_COLOR_CLASSES = {
 // The app ID for the TV app — gets special fruit+TV rendering
 const TV_APP_ID = 'com.apple.TVWatchList';
 
+// Remote tint overlay colours (stored by ID in settings.json, applied as rgba)
+const REMOTE_TINT_RGBAS = {
+    'red':    'rgba(220, 20, 20, 0.20)',
+    'blue':   'rgba(20, 80, 220, 0.20)',
+    'green':  'rgba(20, 160, 50, 0.20)',
+    'purple': 'rgba(140, 30, 200, 0.20)',
+    'orange': 'rgba(220, 100, 10, 0.20)',
+    'gold':   'rgba(200, 160, 0, 0.20)',
+};
+
 // Attach a custom hover tooltip label to any Clutter actor.
 // Positions itself below the pointer using global.get_pointer() after a short delay.
 function attachHoverTooltip(actor, text) {
@@ -160,6 +170,15 @@ class FruitTVIndicator extends PanelMenu.Button {
         this._refreshAppButtons();
     }
 
+    // Update the remote tint: save setting and update the overlay's colour
+    _setRemoteTint(tintId) {
+        this._extension._saveRemoteTint(tintId);
+        if (this._tintOverlay) {
+            const rgba = this._extension.getRemoteTintRgba();
+            this._tintOverlay.set_style(rgba ? `background-color: ${rgba};` : '');
+        }
+    }
+
     _buildMenu() {
         this.menu.removeAll();
 
@@ -204,6 +223,15 @@ class FruitTVIndicator extends PanelMenu.Button {
         this._remoteWidget = remote;
 
         log(`FruitTV-Remote: loading remote graphic ${this._extension.path}/ftv_remote.png`);
+
+        // Tint overlay — full-remote coloured layer, non-interactive, below hit regions
+        const tintRgba = this._extension.getRemoteTintRgba();
+        this._tintOverlay = new St.Widget({ reactive: false });
+        if (tintRgba)
+            this._tintOverlay.set_style(`background-color: ${tintRgba};`);
+        remote.add_child(this._tintOverlay);
+        this._tintOverlay.set_position(0, 0);
+        this._tintOverlay.set_size(remoteWidth, remoteHeight);
 
         const addHit = (command, x, y, w, h, className = '', label = '') => {
             const btn = new St.Button({
@@ -900,41 +928,58 @@ export default class FruitTVRemoteExtension extends Extension {
         this._appColors = {};
     }
 
-    // ── Logo fruit setting ─────────────────────────────────────────────
+    // ── Settings (logo fruit, remote tint) ───────────────────────────────
 
     _settingsPath() {
         return `${GLib.get_home_dir()}/.config/appletv-remote/settings.json`;
     }
 
     _loadLogoFruit() {
+        this._settings = { logo_fruit: 'lemon', remote_tint: 'red' };
         try {
             const [ok, bytes] = GLib.file_get_contents(this._settingsPath());
             if (ok) {
                 const cfg = JSON.parse(new TextDecoder().decode(bytes));
-                if (cfg && typeof cfg.logo_fruit === 'string') {
-                    this._logoFruit = cfg.logo_fruit;
-                    return;
-                }
+                if (cfg && typeof cfg === 'object')
+                    this._settings = { ...this._settings, ...cfg };
             }
         } catch (_e) {}
-        this._logoFruit = 'lemon';
+        this._logoFruit = this._settings.logo_fruit;
+    }
+
+    _writeSettings() {
+        try {
+            const file = Gio.File.new_for_path(this._settingsPath());
+            file.replace_contents(
+                new TextEncoder().encode(JSON.stringify(this._settings, null, 2)),
+                null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null
+            );
+        } catch (e) {
+            log(`FruitTV-Remote: failed to save settings: ${e}`);
+        }
     }
 
     _saveLogoFruit(fruit) {
         this._logoFruit = fruit;
-        try {
-            const file = Gio.File.new_for_path(this._settingsPath());
-            file.replace_contents(
-                new TextEncoder().encode(JSON.stringify({ logo_fruit: fruit }, null, 2)),
-                null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null
-            );
-        } catch (e) {
-            log(`FruitTV-Remote: failed to save logo fruit setting: ${e}`);
-        }
+        this._settings = { ...this._settings, logo_fruit: fruit };
+        this._writeSettings();
+    }
+
+    _saveRemoteTint(tintId) {
+        this._settings = { ...this._settings, remote_tint: tintId };
+        this._writeSettings();
     }
 
     getLogoFruit() {
         return this._logoFruit || 'lemon';
+    }
+
+    getRemoteTintId() {
+        return this._settings?.remote_tint ?? 'none';
+    }
+
+    getRemoteTintRgba() {
+        return REMOTE_TINT_RGBAS[this.getRemoteTintId()] ?? null;
     }
 
     // ── App colour management ──────────────────────────────────────────

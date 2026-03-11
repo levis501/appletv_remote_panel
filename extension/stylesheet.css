@@ -452,6 +452,56 @@
     color: white !important;
 }
 
+/* ── Settings row (fruit + tint dropdowns in device dialog) ─────────────── */
+
+.fruittv-settings-row {
+    spacing: 12px;
+    padding: 0 0 8px 0;
+}
+
+.fruittv-settings-col {
+    spacing: 4px;
+}
+
+.fruittv-dropdown-btn {
+    border-radius: 5px;
+    padding: 4px 10px;
+    min-width: 110px;
+    font-size: 12px;
+    background-color: rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    color: black;
+}
+
+.fruittv-dropdown-btn:hover {
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+.fruittv-dropdown-list {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.97);
+    margin-top: 1px;
+}
+
+.fruittv-dropdown-item {
+    padding: 4px 10px;
+    font-size: 12px;
+    color: black;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+}
+
+.fruittv-dropdown-item:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+.fruittv-dropdown-item-selected {
+    font-weight: bold;
+    color: #1a6fa3;
+}
+
 /* ── Hover tooltips ──────────────────────────────────────────────────────── */
 
 .fruittv-tooltip {

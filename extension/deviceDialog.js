@@ -21,6 +21,15 @@ const FRUIT_OPTIONS = [
     { id: 'orange',     label: 'Orange' },
 ];
 
+const TINT_OPTIONS = [
+    { id: 'red',    label: 'Red'    },
+    { id: 'blue',   label: 'Blue'   },
+    { id: 'green',  label: 'Green'  },
+    { id: 'purple', label: 'Purple' },
+    { id: 'orange', label: 'Orange' },
+    { id: 'gold',   label: 'Gold'   },
+];
+
 
 const DETAILS_FALLBACK = 'Unknown';
 
@@ -110,7 +119,6 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         this._onClosed = onClosed;
         this._scanning = false;
         this._selectedId = indicator._selectedId;
-        this._fruitBtns = new Map();
 
         this._buildLayout();
         this._loadDevices();
@@ -123,8 +131,8 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         });
         this.contentLayout.add_child(title);
 
-        // ── Fruit picker ───────────────────────────────────────────────
-        this._buildFruitPicker();
+        // ── Fruit picker + tint picker ────────────────────────────────
+        this._buildSettingsRow();
 
         // ── Device list ────────────────────────────────────────────────
         this._deviceList = new St.BoxLayout({
@@ -161,59 +169,107 @@ class DeviceDialog extends ModalDialog.ModalDialog {
         ]);
     }
 
-    _buildFruitPicker() {
-        const pickerLabel = new St.Label({
-            text: _('Logo Fruit:'),
-            style_class: 'fruittv-device-name',
-        });
-        this.contentLayout.add_child(pickerLabel);
-
+    _buildSettingsRow() {
         const row = new St.BoxLayout({
-            style_class: 'fruittv-device-fruit-row',
+            style_class: 'fruittv-settings-row',
             x_expand: true,
         });
         this.contentLayout.add_child(row);
 
-        const extensionPath = this._indicator._extension.path;
+        // Fruit column
+        const fruitCol = new St.BoxLayout({
+            vertical: true,
+            style_class: 'fruittv-settings-col',
+            x_expand: true,
+        });
+        row.add_child(fruitCol);
+
+        fruitCol.add_child(new St.Label({
+            text: _('Logo Fruit:'),
+            style_class: 'fruittv-device-name',
+        }));
         const currentFruit = this._indicator._extension.getLogoFruit();
+        fruitCol.add_child(this._buildDropdown(
+            FRUIT_OPTIONS, currentFruit, (id) => this._selectFruit(id)
+        ));
 
-        for (const fruit of FRUIT_OPTIONS) {
-            const iconFile = Gio.File.new_for_path(
-                `${extensionPath}/icons/fruits/${fruit.id}-symbolic.svg`
-            );
-            const icon = new St.Icon({
-                gicon: new Gio.FileIcon({ file: iconFile }),
-                icon_size: 18,
-            });
+        // Tint column
+        const tintCol = new St.BoxLayout({
+            vertical: true,
+            style_class: 'fruittv-settings-col',
+            x_expand: true,
+        });
+        row.add_child(tintCol);
 
-            const btn = new St.Button({
-                style_class: 'fruittv-device-fruit-btn',
+        tintCol.add_child(new St.Label({
+            text: _('Remote Tint:'),
+            style_class: 'fruittv-device-name',
+        }));
+        const currentTint = this._indicator._extension.getRemoteTintId();
+        tintCol.add_child(this._buildDropdown(
+            TINT_OPTIONS, currentTint, (id) => this._selectTint(id)
+        ));
+    }
+
+    // Build a compact inline-expand dropdown widget.
+    // Returns a St.BoxLayout (vertical) containing the toggle button and
+    // a collapsible list that shows/hides on click.
+    _buildDropdown(options, currentId, onSelect) {
+        const container = new St.BoxLayout({ vertical: true, x_expand: true });
+
+        const currentOpt = options.find(o => o.id === currentId) ?? options[0];
+        const headerBtn = new St.Button({
+            label: `${currentOpt.label}  ▾`,
+            style_class: 'fruittv-dropdown-btn',
+            x_expand: true,
+            can_focus: true,
+        });
+        container.add_child(headerBtn);
+
+        const listBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'fruittv-dropdown-list',
+            visible: false,
+            x_expand: true,
+        });
+        container.add_child(listBox);
+
+        const itemBtns = [];
+        for (const opt of options) {
+            const item = new St.Button({
+                label: opt.label,
+                style_class: `fruittv-dropdown-item${opt.id === currentId ? ' fruittv-dropdown-item-selected' : ''}`,
+                x_expand: true,
                 can_focus: true,
-                reactive: true,
-                child: icon,
             });
-
-            if (fruit.id === currentFruit) {
-                btn.add_style_class_name('fruittv-device-fruit-active');
-            }
-
-            btn.connect('clicked', () => this._selectFruit(fruit.id));
-            row.add_child(btn);
-            this._fruitBtns.set(fruit.id, btn);
+            item.connect('clicked', () => {
+                for (const [i, btn] of itemBtns.entries()) {
+                    if (options[i].id === opt.id)
+                        btn.add_style_class_name('fruittv-dropdown-item-selected');
+                    else
+                        btn.remove_style_class_name('fruittv-dropdown-item-selected');
+                }
+                headerBtn.set_label(`${opt.label}  ▾`);
+                listBox.visible = false;
+                onSelect(opt.id);
+            });
+            listBox.add_child(item);
+            itemBtns.push(item);
         }
+
+        headerBtn.connect('clicked', () => {
+            listBox.visible = !listBox.visible;
+        });
+
+        return container;
     }
 
     _selectFruit(fruitId) {
-        // Update highlight on all buttons
-        for (const [id, btn] of this._fruitBtns) {
-            if (id === fruitId) {
-                btn.add_style_class_name('fruittv-device-fruit-active');
-            } else {
-                btn.remove_style_class_name('fruittv-device-fruit-active');
-            }
-        }
-        // Propagate to indicator (saves + updates panel icon + refreshes TV button)
         this._indicator._setLogoFruit(fruitId);
+    }
+
+    _selectTint(tintId) {
+        this._indicator._setRemoteTint(tintId);
     }
 
     async _loadDevices() {
